@@ -44,15 +44,14 @@ export default function GuildGate() {
   };
 
   return (
-    <div className="max-w-md mx-auto py-12 space-y-6">
-      <div className="p-8 rounded-2xl border border-border-subtle bg-canvas-card space-y-6">
+    <div className="max-w-md mx-auto py-6 space-y-6">
+      <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
-            Join or Create a Guild
+          <h2 className="text-2xl font-semibold tracking-tight text-ink-primary">
+            Join a guild
           </h2>
-          <p className="text-xs text-ink-secondary mt-1">
-            Praxis requires a private circle of friends to verify real-world
-            deeds.
+          <p className="text-sm text-ink-secondary mt-2 leading-relaxed">
+            Praxis needs a private circle of friends to verify real-world deeds.
           </p>
         </div>
 
@@ -82,7 +81,7 @@ export default function GuildGate() {
             <button
               type="submit"
               disabled={loading || code.length < 5}
-              className="w-full py-2.5 rounded-xl text-sm font-medium text-ink-primary bg-moss hover:bg-moss-hover disabled:opacity-50 transition-colors"
+              className="praxis-btn praxis-btn--pill"
             >
               {loading ? "Joining..." : "Join existing guild"}
             </button>
@@ -106,18 +105,18 @@ export default function GuildGate() {
             <button
               type="submit"
               disabled={loading || !newGuildName}
-              className="w-full py-2.5 rounded-xl text-sm font-medium text-ink-primary bg-moss hover:bg-moss-hover disabled:opacity-50 transition-colors"
+              className="praxis-btn praxis-btn--pill"
             >
               {loading ? "Creating..." : "Create new guild"}
             </button>
           </form>
         )}
 
-        <div className="pt-2 border-t border-border-subtle text-center">
+        <div className="pt-2 text-center">
           <button
             type="button"
             onClick={() => setIsCreating(!isCreating)}
-            className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+            className="onboard__switch"
           >
             {isCreating
               ? "Have an invite code instead? Join guild"

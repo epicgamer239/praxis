@@ -12,6 +12,7 @@ import {
 } from "@/lib/firestoreService";
 import { PeerSubmission, Guild, LeaderboardEntry } from "@/types";
 import { getWeekStart } from "@/lib/progression";
+import GuildGate from "@/components/guild/GuildGate";
 
 function submissionDate(sub: PeerSubmission): Date | null {
   const raw = (sub.verifiedAt || sub.createdAt) as {
@@ -128,11 +129,7 @@ export default function GuildPage() {
     leaderboardTab === "weekly" ? weeklyBoard : allTimeBoard;
 
   if (!profile || !profile.guildId) {
-    return (
-      <div className="py-12 text-center text-sm text-ink-muted">
-        Please join a guild first.
-      </div>
-    );
+    return <GuildGate />;
   }
 
   const displayCode = guild?.inviteCode || profile.guildId;

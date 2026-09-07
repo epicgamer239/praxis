@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { subscribeToUserVerifiedDeeds } from "@/lib/firestoreService";
@@ -21,23 +20,9 @@ export default function ProfilePage() {
     return () => unsub();
   }, [profile?.id]);
 
-  if (loading) {
+  if (loading || !profile) {
     return (
-      <div className="py-12 text-center text-sm text-ink-muted">
-        Loading character dossier...
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="py-12 text-center text-sm text-ink-muted">
-        Please{" "}
-        <Link href="/login" className="underline text-ink-primary">
-          sign in
-        </Link>{" "}
-        to view your character dossier.
-      </div>
+      <div className="py-16 text-center text-sm text-ink-muted">Loading…</div>
     );
   }
 

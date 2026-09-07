@@ -9,6 +9,7 @@ import { useToast } from "@/context/ToastContext";
 import { fileToBase64Compressed } from "@/lib/imageUtils";
 import { submitProofOfWork } from "@/lib/firestoreService";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
+import GuildGate from "@/components/guild/GuildGate";
 
 function SubmitProofContent() {
   const router = useRouter();
@@ -37,11 +38,7 @@ function SubmitProofContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!profile || !profile.guildId) {
-    return (
-      <div className="py-12 text-center text-sm text-ink-muted">
-        Please join a guild first.
-      </div>
-    );
+    return <GuildGate />;
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

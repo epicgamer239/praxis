@@ -1,14 +1,6 @@
 // src/lib/firebase.ts
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import {
-  initializeAuth,
-  getAuth,
-  indexedDBLocalPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
-  inMemoryPersistence,
-  type Auth,
-} from "firebase/auth";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -25,32 +17,9 @@ export const firebaseConfigReady = Boolean(
   firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId,
 );
 
-function getFirebaseApp(): FirebaseApp {
-  if (getApps().length > 0) return getApp();
-  return initializeApp(firebaseConfig);
-}
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-function getFirebaseAuth(app: FirebaseApp): Auth {
-  if (typeof window === "undefined") {
-    return getAuth(app);
-  }
-  try {
-    return initializeAuth(app, {
-      persistence: [
-        indexedDBLocalPersistence,
-        browserLocalPersistence,
-        browserSessionPersistence,
-        inMemoryPersistence,
-      ],
-    });
-  } catch {
-    return getAuth(app);
-  }
-}
-
-const app = getFirebaseApp();
-
-export const auth = getFirebaseAuth(app);
+export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 

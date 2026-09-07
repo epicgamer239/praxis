@@ -1,8 +1,6 @@
-// src/components/navigation/BottomNav.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, Camera, Users, User } from "lucide-react";
@@ -16,15 +14,8 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || pathname === "/login") return null;
-
-  return createPortal(
+  return (
     <nav className="praxis-bottom-nav" aria-label="Primary">
       <div className="praxis-bottom-nav__grid">
         {navItems.map((item) => {
@@ -44,13 +35,12 @@ export default function BottomNav() {
                   : "praxis-bottom-nav__link"
               }
             >
-              <Icon size={22} strokeWidth={isActive ? 2.4 : 1.8} />
+              <Icon size={24} strokeWidth={isActive ? 2.35 : 1.75} />
               {item.label}
             </Link>
           );
         })}
       </div>
-    </nav>,
-    document.body,
+    </nav>
   );
 }

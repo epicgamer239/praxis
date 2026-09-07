@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updateProfile,
   signOut as fbSignOut,
 } from "firebase/auth";
 import { auth, db, firebaseConfigReady } from "@/lib/firebase";
@@ -145,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    // Redirect never returns to LAN / tunnel origins (it goes to authDomain).
+    provider.setCustomParameters({ prompt: "select_account" });
     await signInWithPopup(auth, provider);
   };
 
@@ -156,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (e: string, p: string, name: string) => {
     const cred = await createUserWithEmailAndPassword(auth, e, p);
     if (cred.user) {
+      if (name) {
+        await updateProfile(cred.user, { displayName: name });
+      }
       const userDocRef = doc(db, "users", cred.user.uid);
       await setDoc(userDocRef, buildDefaultProfile(cred.user.uid, e, name));
     }

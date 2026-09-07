@@ -7,7 +7,6 @@ import AttributeAmoeba from "@/components/amoeba/AttributeAmoeba";
 import QuestCard from "@/components/quests/QuestCard";
 import GuildGate from "@/components/guild/GuildGate";
 import StreakCalendar from "@/components/streak/StreakCalendar";
-import SecureContextBanner from "@/components/auth/SecureContextBanner";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
 import {
@@ -18,7 +17,7 @@ import { PeerSubmission, Quest } from "@/types";
 import { formatLocalDate } from "@/lib/progression";
 
 export default function DashboardPage() {
-  const { profile, loading, user, authError } = useAuth();
+  const { profile, loading, user } = useAuth();
   const [userSubmissions, setUserSubmissions] = useState<PeerSubmission[]>([]);
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
 
@@ -98,30 +97,10 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading && !user) {
+  if (loading || !user || !profile) {
     return (
-      <div className="py-12 text-center space-y-3">
-        <SecureContextBanner />
-        <p className="text-sm text-ink-muted">Checking sign-in...</p>
-        <Link href="/login" className="text-xs text-ink-primary underline">
-          Go to sign in
-        </Link>
-      </div>
-    );
-  }
-
-  if (!user || !profile) {
-    return (
-      <div className="py-12 text-center text-sm text-ink-muted space-y-3">
-        <SecureContextBanner />
-        {authError && <p className="text-attribute-social text-xs">{authError}</p>}
-        <p>
-          Please{" "}
-          <Link href="/login" className="underline text-ink-primary">
-            sign in
-          </Link>{" "}
-          to view your quest dashboard.
-        </p>
+      <div className="py-16 text-center text-sm text-ink-muted">
+        Loading…
       </div>
     );
   }

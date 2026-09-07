@@ -7,9 +7,10 @@ import { useAuth } from "@/context/AuthContext";
 import { friendlyAuthError } from "@/lib/authErrors";
 import { firebaseConfigReady } from "@/lib/firebase";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { signUpWithEmail, signInWithGoogle } = useAuth();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,12 +20,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     if (!firebaseConfigReady) {
-      setError("Sign-in is not configured on this build.");
+      setError("Sign-up is not configured on this build.");
       return;
     }
     setSubmitting(true);
     try {
-      await signInWithEmail(email.trim(), password);
+      await signUpWithEmail(email.trim(), password, name.trim());
       router.replace("/");
     } catch (err) {
       setError(friendlyAuthError(err));
@@ -51,13 +52,24 @@ export default function LoginPage() {
       </button>
 
       <div>
-        <h1>Sign in</h1>
-        <p className="onboard__lede">Welcome back. Pick up today&apos;s quests.</p>
+        <h1>Create account</h1>
+        <p className="onboard__lede">Start your guild and get outside today.</p>
       </div>
 
       {error && <div className="onboard__error">{error}</div>}
 
       <form onSubmit={handleSubmit} className="onboard__form">
+        <label>
+          Name
+          <input
+            type="text"
+            autoComplete="name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+          />
+        </label>
         <label>
           Email
           <input
@@ -73,15 +85,16 @@ export default function LoginPage() {
           Password
           <input
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
+            minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
+            placeholder="At least 6 characters"
           />
         </label>
         <button type="submit" className="praxis-btn praxis-btn--pill" disabled={submitting}>
-          {submitting ? "Signing in…" : "Sign in"}
+          {submitting ? "Creating…" : "Create account"}
         </button>
       </form>
 
@@ -89,8 +102,8 @@ export default function LoginPage() {
         Continue with Google
       </button>
 
-      <button type="button" className="onboard__switch" onClick={() => router.push("/signup")}>
-        New here? Create an account
+      <button type="button" className="onboard__switch" onClick={() => router.push("/login")}>
+        I already have an account
       </button>
     </div>
   );

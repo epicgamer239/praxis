@@ -1,9 +1,8 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import BottomNav from "@/components/navigation/BottomNav";
-import MobileHeader from "@/components/navigation/MobileHeader";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
+import AppChrome from "@/components/app/AppChrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -40,16 +39,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-canvas-base text-ink-primary antialiased min-h-full">
+      <body className="bg-canvas-base text-ink-primary antialiased">
         <AuthProvider>
           <ToastProvider>
-            <div className="praxis-shell">
-              <MobileHeader />
-              <main className="praxis-main">
-                <div className="max-w-lg mx-auto">{children}</div>
-              </main>
-            </div>
-            <BottomNav />
+            <AppChrome>{children}</AppChrome>
           </ToastProvider>
         </AuthProvider>
       </body>
