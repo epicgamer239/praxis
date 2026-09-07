@@ -152,6 +152,21 @@ button {
   padding: 1rem 1.15rem 5.5rem;
 }
 
+html,
+body,
+.praxis-main {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.praxis-main::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .praxis-btn {
   display: flex;
   align-items: center;
