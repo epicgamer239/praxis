@@ -1,0 +1,125 @@
+/* src/app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  --color-canvas-base: #111312;
+  --color-canvas-card: #191C1B;
+  --color-canvas-subtle: #222624;
+  --color-canvas-hover: #292E2B;
+
+  --color-ink-primary: #F0EFEA;
+  --color-ink-secondary: #9EA7A0;
+  --color-ink-muted: #626B64;
+
+  --color-moss: #3B6E57;
+  --color-moss-hover: #4A876C;
+
+  --color-border-subtle: #282E2A;
+  --color-border-strong: #3A423D;
+
+  --color-attribute-wisdom: #38BDF8;
+  --color-attribute-social: #FB923C;
+  --color-attribute-civic: #FACC15;
+  --color-attribute-vitality: #4ADE80;
+
+  --radius-2xl: 16px;
+  --radius-xl: 12px;
+}
+
+html,
+body {
+  min-height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: var(--color-canvas-base);
+  color: var(--color-ink-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 16px inputs prevent iOS Safari from zooming on focus */
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}
+
+.praxis-bottom-nav {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  border-top: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-canvas-card) 96%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.praxis-bottom-nav__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: 3.75rem;
+}
+
+.praxis-bottom-nav__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  min-height: 3.75rem;
+}
+
+.praxis-bottom-nav__link.is-active {
+  color: var(--color-ink-primary);
+}
+
+.praxis-mobile-header {
+  display: flex;
+}
+
+.praxis-shell {
+  flex: 1;
+  min-width: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.praxis-main {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem 1rem calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+.praxis-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  width: 100%;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink-primary);
+  background: var(--color-moss);
+}
+
+.praxis-btn:disabled {
+  opacity: 0.45;
+}
