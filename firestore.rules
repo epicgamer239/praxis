@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Assumed data model:
+    // users/{uid}: id, email, name, guildId, guildName, level, title, streakDays,
+    //   lastActiveDate, activeDates, totalVerifiedDeeds, attributes, nudgedByNames
+    // guilds/{id}: id, name, inviteCode, ownerId, memberIds, createdAt
+    // submissions/{id}: id, userId, authorName, guildId, questId, questTitle,
+    //   attribute, attributeLabel, xpReward, photoBase64, fieldNote,
+    //   vouchesReceived, requiredVouches, vouchedBy, vouchedByNames, status, createdAt
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'name'])
+        && data.id is string
+        && data.id.size() > 0
+        && data.id.size() < 128
+        && data.email is string
+        && data.email.size() < 320
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() < 80;
+    }
+
+    function isValidGuild(data) {
+      return data.keys().hasAll(['id', 'name', 'inviteCode', 'ownerId', 'memberIds'])
+        && data.id is string
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() < 80
+        && data.inviteCode is string
+        && data.inviteCode.size() == 5
+        && data.ownerId is string
+        && data.memberIds is list
+        && data.memberIds.size() > 0
+        && data.memberIds.size() < 50;
+    }
+
+    function isValidSubmission(data) {
+      return data.keys().hasAll(['id', 'userId', 'guildId', 'questId', 'photoBase64', 'status'])
+        && data.id is string
+        && data.userId is string
+        && data.guildId is string
+        && data.questId is string
+        && data.photoBase64 is string
+        && data.photoBase64.size() < 900000
+        && data.status in ['awaiting_vouches', 'verified'];
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if isSelf(userId)
+        && request.resource.data.id == userId
+        && isValidUser(request.resource.data);
+      allow update: if isValidUser(request.resource.data)
+        && (
+          isSelf(userId)
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nudgedByNames'])
+        );
+      allow delete: if false;
+    }
+
+    match /guilds/{guildId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds
+        && isValidGuild(request.resource.data);
+      allow update: if signedIn()
+        && isValidGuild(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId
+        && (
+          resource.data.ownerId == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+        );
+      allow delete: if false;
+    }
+
+    match /submissions/{subId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isValidSubmission(request.resource.data);
+      allow update: if signedIn()
+        && isValidSubmission(request.resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.guildId == resource.data.guildId
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['vouchedBy', 'vouchedByNames', 'vouchesReceived', 'status', 'verifiedAt']);
+      allow delete: if false;
+    }
+
+    match /chat/{message} {
+      allow read, write: if true;
+    }
+    match /boards/{roomId}/strokes/{stroke} {
+      allow read, write: if true;
+    }
+  }
+}

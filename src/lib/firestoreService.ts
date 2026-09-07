@@ -10,7 +10,6 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
   increment,
   Timestamp,
   arrayUnion,
@@ -141,37 +140,49 @@ export async function submitProofOfWork(params: {
 }
 
 // 5. Listen to Today's Submissions by Current User
+function sortByCreatedAtDesc(list: PeerSubmission[]) {
+  return list.sort((a, b) => {
+    const aMs = submissionMillis(a.createdAt);
+    const bMs = submissionMillis(b.createdAt);
+    return bMs - aMs;
+  });
+}
+
+function submissionMillis(raw: PeerSubmission['createdAt'] | undefined) {
+  if (!raw) return 0;
+  if (typeof raw === 'object' && raw && 'toMillis' in raw && typeof raw.toMillis === 'function') {
+    return raw.toMillis();
+  }
+  if (typeof raw === 'object' && raw && 'seconds' in raw) {
+    return Number(raw.seconds) * 1000;
+  }
+  const parsed = new Date(raw as string).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 export function subscribeToUserSubmissionsToday(
   userId: string,
   callback: (submissions: PeerSubmission[]) => void
 ) {
   const submissionsRef = collection(db, 'submissions');
-  const q = query(
-    submissionsRef,
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
+  const q = query(submissionsRef, where('userId', '==', userId));
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
     snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
-    callback(list);
+    callback(sortByCreatedAtDesc(list));
   });
 }
 
 // 6. Real-time Guild Submissions Feed
 export function subscribeToGuildSubmissions(guildId: string, callback: (subs: PeerSubmission[]) => void) {
   const submissionsRef = collection(db, 'submissions');
-  const q = query(
-    submissionsRef,
-    where('guildId', '==', guildId),
-    orderBy('createdAt', 'desc')
-  );
+  const q = query(submissionsRef, where('guildId', '==', guildId));
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
     snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
-    callback(list);
+    callback(sortByCreatedAtDesc(list));
   });
 }
 
@@ -315,13 +326,12 @@ export function subscribeToUserVerifiedDeeds(
     submissionsRef,
     where('userId', '==', userId),
     where('status', '==', 'verified'),
-    orderBy('createdAt', 'desc')
   );
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
     snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
-    callback(list);
+    callback(sortByCreatedAtDesc(list));
   });
 }
 
