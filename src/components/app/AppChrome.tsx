@@ -48,7 +48,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     <div className="praxis-shell">
       <MobileHeader />
       <main className="praxis-main">
-        <div className="max-w-lg mx-auto">{children}</div>
+        <div className="max-w-lg mx-auto min-h-full">{children}</div>
       </main>
       <BottomNav />
     </div>

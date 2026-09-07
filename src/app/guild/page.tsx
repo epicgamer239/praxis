@@ -164,7 +164,7 @@ export default function GuildPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-full">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border-subtle">
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           Guild
