@@ -359,24 +359,6 @@ export default function GuildPage() {
               ))
             )}
           </div>
-
-          <div
-            onClick={handleCopyCode}
-            className="pt-4 border-t border-border-subtle space-y-1 text-xs cursor-pointer group"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-ink-secondary">Guild Invite Code</span>
-              <span className="text-[10px] text-ink-muted group-hover:text-ink-primary transition-colors">
-                Click to copy
-              </span>
-            </div>
-            <p className="text-sm font-semibold tracking-wider text-attribute-civic underline underline-offset-2">
-              {displayCode}
-            </p>
-            <p className="text-ink-muted leading-relaxed">
-              Share with classmates or friends to add them to this circle.
-            </p>
-          </div>
         </div>
       </div>
 
