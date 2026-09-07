@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, Camera, Users, User } from "lucide-react";
@@ -14,8 +15,13 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const nav = (
     <nav className="praxis-bottom-nav" aria-label="Primary">
       <div className="praxis-bottom-nav__grid">
         {navItems.map((item) => {
@@ -43,4 +49,7 @@ export default function BottomNav() {
       </div>
     </nav>
   );
+
+  if (!mounted) return nav;
+  return createPortal(nav, document.body);
 }
