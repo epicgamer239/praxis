@@ -90,8 +90,12 @@ export default function AttributeAmoeba({ attributes }: AttributeAmoebaProps) {
   }, [attributes]);
 
   return (
-    <div className="relative w-full aspect-[340/300] flex items-center justify-center">
-      <svg viewBox="0 0 340 300" className="w-full h-full">
+    <div className="relative w-full aspect-[452/308] flex items-center justify-center overflow-visible">
+      <svg
+        viewBox="-56 0 452 308"
+        className="w-full h-full overflow-visible"
+        overflow="visible"
+      >
         <defs>
           <filter
             id="dynamicMeshBlur"
@@ -153,7 +157,7 @@ export default function AttributeAmoeba({ attributes }: AttributeAmoebaProps) {
           Wisdom L{axisLevels.wis}
         </text>
         <text
-          x="295"
+          x="288"
           y="154"
           textAnchor="start"
           fill="#FB923C"
@@ -171,7 +175,7 @@ export default function AttributeAmoeba({ attributes }: AttributeAmoebaProps) {
           Civic L{civicLevelFormatted(attributes.civic)}
         </text>
         <text
-          x="45"
+          x="52"
           y="154"
           textAnchor="end"
           fill="#4ADE80"

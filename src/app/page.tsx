@@ -165,7 +165,7 @@ export default function DashboardPage() {
         lastActiveDate={profile.lastActiveDate}
       />
 
-      <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card">
+      <div className="p-5 pb-6 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
         <h3 className="text-sm font-medium text-ink-secondary mb-3">
           Your attributes
         </h3>

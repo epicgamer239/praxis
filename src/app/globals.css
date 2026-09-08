@@ -149,7 +149,7 @@ button {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 1rem 1.15rem 5.5rem;
+  padding: 1rem 1.15rem calc(8.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 html,
