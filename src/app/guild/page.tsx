@@ -8,7 +8,6 @@ import {
   subscribeToGuild,
   subscribeToGuildMembers,
   vouchForSubmission,
-  sendNudgeToMember,
 } from "@/lib/firestoreService";
 import { PeerSubmission, Guild, LeaderboardEntry } from "@/types";
 import { getWeekStart } from "@/lib/progression";
@@ -171,15 +170,6 @@ export default function GuildPage() {
     }
   };
 
-  const handleNudge = async (targetUserId: string, targetName: string) => {
-    try {
-      await sendNudgeToMember(targetUserId, profile.name);
-      toast(`Nudged ${targetName} to step outside today!`);
-    } catch {
-      toast("Failed to send nudge.");
-    }
-  };
-
   return (
     <div className="space-y-6 min-h-full">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border-subtle">
@@ -264,10 +254,23 @@ export default function GuildPage() {
                     </p>
                   )}
 
+                  <div className="h-1.5 rounded-full bg-canvas-subtle overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-attribute-civic transition-[width] duration-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          10 +
+                            (sub.vouchesReceived / (sub.requiredVouches || 2)) *
+                              90,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+
                   <div className="flex items-center justify-between pt-2 border-t border-border-subtle gap-2">
                     <span className="text-xs text-ink-muted">
-                      Status: {sub.vouchesReceived} of {sub.requiredVouches}{" "}
-                      vouches
+                      {sub.vouchesReceived} of {sub.requiredVouches} vouches
                       {sub.vouchedByNames.length > 0 &&
                         ` (by ${sub.vouchedByNames.join(", ")})`}
                     </span>
@@ -361,16 +364,6 @@ export default function GuildPage() {
                     <span className="text-ink-muted">
                       {entry.deedsCount} deeds · {entry.totalXp} XP
                     </span>
-
-                    {!entry.isCurrentUser && (
-                      <button
-                        type="button"
-                        onClick={() => handleNudge(entry.userId, entry.name)}
-                        className="text-xs text-attribute-social hover:underline ml-1"
-                      >
-                        Nudge
-                      </button>
-                    )}
                   </div>
                 </div>
               ))

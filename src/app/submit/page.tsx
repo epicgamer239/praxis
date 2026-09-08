@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { differenceHash, fileToBase64Compressed } from "@/lib/imageUtils";
+import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { submitProofOfWork } from "@/lib/firestoreService";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
 import GuildGate from "@/components/guild/GuildGate";
@@ -36,6 +37,7 @@ function SubmitProofContent() {
   const [preview, setPreview] = useState<string | null>(null);
   const [fieldNote, setFieldNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hit, setHit] = useState<VerifyHitPayload | null>(null);
 
   if (!profile || !profile.guildId) {
     return <GuildGate />;
@@ -82,8 +84,14 @@ function SubmitProofContent() {
         fieldNote: fieldNote || "Completed real-world interaction in person.",
       });
 
-      toast("Proof published to guild feed!");
-      router.push("/guild");
+      setHit({
+        title: "Proof sent",
+        body: "Your guild has to confirm it. Two vouches unlock the XP.",
+        xp: activeQuest.xpReward,
+        xpLabel: `${activeQuest.attributeLabel} waiting`,
+        kind: "submit",
+      });
+      window.setTimeout(() => router.push("/"), 2200);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to publish proof.");
     } finally {
@@ -93,6 +101,7 @@ function SubmitProofContent() {
 
   return (
     <div className="space-y-6">
+      <VerifyHit hit={hit} onDone={() => setHit(null)} />
       <div className="pb-1">
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           Submit proof

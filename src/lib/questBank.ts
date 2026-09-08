@@ -1,5 +1,6 @@
 // src/lib/questBank.ts
 import { Quest, AttributeType } from '@/types';
+import { DEED_XP } from '@/lib/progression';
 
 export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
   // Social (Charisma)
@@ -8,7 +9,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Order or discuss their choice. Complete this interaction face-to-face with zero digital screens.',
     attribute: 'social',
     attributeLabel: 'Social interaction',
-    xpReward: 25,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the item, storefront, or receipt with a note on the conversation.',
   },
   {
@@ -16,7 +17,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Notice something specific (e.g., their work, craft, or effort) and express authentic appreciation in person.',
     attribute: 'social',
     attributeLabel: 'Social interaction',
-    xpReward: 25,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of your location or activity with a brief field note on the interaction.',
   },
   {
@@ -24,7 +25,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Break the everyday ice with a simple greeting and brief conversation.',
     attribute: 'social',
     attributeLabel: 'Social interaction',
-    xpReward: 30,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the area where you met with a note detailing the discussion.',
   },
 
@@ -34,7 +35,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Leave a local trail, sidewalk, or community park visibly cleaner than you found it.',
     attribute: 'civic',
     attributeLabel: 'Civic action',
-    xpReward: 35,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the collected litter in or beside a public trash/recycling bin.',
   },
   {
@@ -42,7 +43,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Visit a family-owned grocery, independent bookstore, or neighborhood hardware store.',
     attribute: 'civic',
     attributeLabel: 'Civic action',
-    xpReward: 30,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the local storefront or purchase item.',
   },
   {
@@ -50,7 +51,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Perform a low-friction civic deed that restores order to a shared space.',
     attribute: 'civic',
     attributeLabel: 'Civic action',
-    xpReward: 25,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the returned cart bay or tidy public space.',
   },
 
@@ -60,7 +61,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Keep your phone pocketed or in "Do Not Disturb" mode for the entire duration of the walk.',
     attribute: 'vitality',
     attributeLabel: 'Vitality & movement',
-    xpReward: 20,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of a trail landmark, scenic path, or your step counter summary.',
   },
   {
@@ -68,7 +69,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Intentionally alter your regular route to map new physical terrain in your town.',
     attribute: 'vitality',
     attributeLabel: 'Vitality & movement',
-    xpReward: 30,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the newly discovered landmark or trail marker.',
   },
   {
@@ -76,7 +77,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Yard work, stretching, calisthenics, or cycling without headphones or podcasts.',
     attribute: 'vitality',
     attributeLabel: 'Vitality & movement',
-    xpReward: 25,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of your training environment or outdoor area.',
   },
 
@@ -86,7 +87,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'No e-readers, iPads, or phone screens. Pure analog reading in a quiet space.',
     attribute: 'wisdom',
     attributeLabel: 'Wisdom & mindfulness',
-    xpReward: 25,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the open book and your analog reading space.',
   },
   {
@@ -94,7 +95,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: '15 minutes of uninterrupted analog thought with all electronic devices in another room.',
     attribute: 'wisdom',
     attributeLabel: 'Wisdom & mindfulness',
-    xpReward: 20,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of your handwritten notes or planning notebook.',
   },
   {
@@ -102,7 +103,7 @@ export const MASTER_QUEST_BANK: Omit<Quest, 'id'>[] = [
     description: 'Observe surroundings, soundscapes, and breath without reaching for your device.',
     attribute: 'wisdom',
     attributeLabel: 'Wisdom & mindfulness',
-    xpReward: 20,
+    xpReward: DEED_XP,
     requiredProof: 'Photo of the outdoor seating location.',
   },
 ];

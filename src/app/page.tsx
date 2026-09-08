@@ -12,7 +12,6 @@ import { useAuth } from "@/context/AuthContext";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
 import {
   subscribeToUserSubmissionsToday,
-  clearUserNudges,
 } from "@/lib/firestoreService";
 import { PeerSubmission, Quest } from "@/types";
 import { formatLocalDate } from "@/lib/progression";
@@ -23,6 +22,7 @@ export default function DashboardPage() {
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const seenVerified = useRef<Set<string> | null>(null);
+  const lastLevel = useRef<number | null>(null);
 
   const todayStr = useMemo(() => formatLocalDate(), []);
   const baseQuests = useMemo(() => {
@@ -67,12 +67,19 @@ export default function DashboardPage() {
         for (const sub of subs) {
           if (sub.status === "verified" && !seenVerified.current.has(sub.id)) {
             seenVerified.current.add(sub.id);
-            setHit({
-              title: "Verified",
-              body: sub.questTitle,
-              xp: sub.xpReward,
-              xpLabel: sub.attributeLabel,
-            });
+            window.setTimeout(() => {
+              setHit((current) =>
+                current?.kind === "level"
+                  ? current
+                  : {
+                      title: "Verified",
+                      body: sub.questTitle,
+                      xp: sub.xpReward,
+                      xpLabel: sub.attributeLabel,
+                      kind: "xp",
+                    },
+              );
+            }, 450);
             break;
           }
         }
@@ -101,24 +108,23 @@ export default function DashboardPage() {
     });
   }, [baseQuests, userSubmissions]);
 
-  const nudgeBannerText = useMemo(() => {
-    const names = profile?.nudgedByNames;
-    if (!names || names.length === 0) return null;
-
-    if (names.length === 1) {
-      return `${names[0]} nudged you to step outside and complete today's quest.`;
-    } else if (names.length === 2) {
-      return `${names[0]} and ${names[1]} nudged you to complete today's quest.`;
-    } else {
-      return `${names[0]}, ${names[1]}, and ${names.length - 2} other(s) nudged you to complete today's quest.`;
+  useEffect(() => {
+    if (!profile) return;
+    if (lastLevel.current === null) {
+      lastLevel.current = profile.level;
+      return;
     }
-  }, [profile?.nudgedByNames]);
-
-  const handleDismissNudge = async () => {
-    if (profile?.id) {
-      await clearUserNudges(profile.id);
+    if (profile.level > lastLevel.current) {
+      lastLevel.current = profile.level;
+      setHit({
+        title: "Level up",
+        body: profile.title,
+        xp: profile.level,
+        xpLabel: "New rank unlocked",
+        kind: "level",
+      });
     }
-  };
+  }, [profile]);
 
   if (loading || !user || !profile) {
     return (
@@ -139,20 +145,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       <VerifyHit hit={hit} onDone={() => setHit(null)} />
-      {nudgeBannerText && (
-        <div className="p-4 rounded-2xl border border-attribute-social bg-canvas-card space-y-3">
-          <p className="text-sm text-ink-primary leading-snug">
-            {nudgeBannerText}
-          </p>
-          <button
-            type="button"
-            onClick={handleDismissNudge}
-            className="text-sm text-ink-muted"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
 
       <div>
         <div className="flex items-end justify-between gap-3">
@@ -183,21 +175,25 @@ export default function DashboardPage() {
         </p>
       </Link>
 
-      <StreakCalendar
-        streakDays={profile.streakDays}
-        activeDates={profile.activeDates}
-        lastActiveDate={profile.lastActiveDate}
-      />
+      {profile.totalVerifiedDeeds > 0 && (
+        <>
+          <StreakCalendar
+            streakDays={profile.streakDays}
+            activeDates={profile.activeDates}
+            lastActiveDate={profile.lastActiveDate}
+          />
 
-      <div className="p-5 pb-6 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
-        <h3 className="text-sm font-medium text-ink-secondary mb-3">
-          Your attributes
-        </h3>
-        <AttributeAmoeba attributes={profile.attributes} />
-        <p className="text-xs text-ink-muted mt-3">
-          {profile.totalVerifiedDeeds} verified deeds · {profile.title}
-        </p>
-      </div>
+          <div className="p-5 pb-6 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
+            <h3 className="text-sm font-medium text-ink-secondary mb-3">
+              Your attributes
+            </h3>
+            <AttributeAmoeba attributes={profile.attributes} />
+            <p className="text-xs text-ink-muted mt-3">
+              {profile.totalVerifiedDeeds} verified deeds · {profile.title}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

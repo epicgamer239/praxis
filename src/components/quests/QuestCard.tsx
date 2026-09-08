@@ -21,7 +21,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
       className={cn(
         "p-5 rounded-2xl border bg-canvas-card transition-colors",
         quest.status === "verified"
-          ? "border-border-subtle opacity-75"
+          ? "border-attribute-vitality/50"
           : "border-border-subtle",
       )}
     >
@@ -41,7 +41,6 @@ export default function QuestCard({ quest }: QuestCardProps) {
         {quest.status === "awaiting_vouches" && (
           <span className="text-xs text-attribute-civic font-medium">
             {quest.vouchesReceived || 0} of {quest.requiredVouches || 2} vouches
-            received
           </span>
         )}
         {quest.status === "verified" && (
@@ -77,6 +76,23 @@ export default function QuestCard({ quest }: QuestCardProps) {
       )}
 
       {/* Voucher Credits */}
+      {quest.status === "awaiting_vouches" && (
+        <div className="mt-4 h-1.5 rounded-full bg-canvas-subtle overflow-hidden">
+          <div
+            className="h-full rounded-full bg-attribute-civic transition-[width] duration-500"
+            style={{
+              width: `${Math.min(
+                100,
+                10 +
+                  ((quest.vouchesReceived || 0) /
+                    (quest.requiredVouches || 2)) *
+                    90,
+              )}%`,
+            }}
+          />
+        </div>
+      )}
+
       {quest.vouchedBy && quest.vouchedBy.length > 0 && (
         <p className="text-xs text-ink-muted mt-3">
           Vouched by {quest.vouchedBy.join(" and ")}

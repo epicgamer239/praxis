@@ -43,7 +43,7 @@ export default function StreakCalendar({
             className={cn(
               "p-2 sm:p-2.5 rounded-xl border",
               day.isToday
-                ? "border-moss bg-canvas-subtle"
+                ? "border-moss bg-canvas-subtle streak-today"
                 : "border-border-subtle bg-canvas-subtle",
               day.isFuture && "opacity-40",
             )}

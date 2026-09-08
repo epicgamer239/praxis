@@ -32,7 +32,40 @@ export function getTitleForLevel(level: number): string {
   return `Level ${level} Novice`;
 }
 
-export const VOUCH_BONUS_XP = 5;
+export const DEED_XP = 100;
+export const VOUCH_BONUS_XP = 50;
+
+/** XP needed to leave `level` and reach the next one. L1→2 is one deed. */
+export function xpToNextLevel(level: number): number {
+  return 100 + Math.max(0, level - 1) * 50;
+}
+
+export function xpSpentToReachLevel(level: number): number {
+  let spent = 0;
+  for (let l = 1; l < level; l += 1) {
+    spent += xpToNextLevel(l);
+  }
+  return spent;
+}
+
+export function totalEarnedXp(
+  attributes: Record<string, { level: number; currentXp: number }>,
+): number {
+  return Object.values(attributes).reduce(
+    (sum, attr) => sum + xpSpentToReachLevel(attr.level) + attr.currentXp,
+    0,
+  );
+}
+
+export function computeOverallLevelFromTotalXp(totalXp: number): number {
+  let level = 1;
+  let remaining = Math.max(0, totalXp);
+  while (remaining >= xpToNextLevel(level) && level < 99) {
+    remaining -= xpToNextLevel(level);
+    level += 1;
+  }
+  return level;
+}
 
 export function applyAttributeXp<
   T extends Record<string, { level: number; currentXp: number; maxXp: number; verifiedCount?: number }>,
@@ -40,15 +73,18 @@ export function applyAttributeXp<
   const attr = attributes[key];
   let xp = attr.currentXp + amount;
   let level = attr.level;
-  while (xp >= attr.maxXp) {
-    xp -= attr.maxXp;
+  let maxXp = xpToNextLevel(level);
+  while (xp >= maxXp) {
+    xp -= maxXp;
     level += 1;
+    maxXp = xpToNextLevel(level);
   }
   const next = {
     ...attributes,
     [key]: {
       ...attr,
       currentXp: xp,
+      maxXp,
       level,
       verifiedCount: (attr.verifiedCount || 0) + (bumpVerified ? 1 : 0),
     },
@@ -61,18 +97,14 @@ export function applyAttributeXp<
   };
 }
 
-/** Overall character level from attribute XP pools (100 XP per level). */
+/** Overall character level from the rising XP curve. */
 export function computeOverallLevelFromAttributes(
   attributes: Record<
     string,
     { level: number; currentXp: number; maxXp?: number }
   >,
 ): number {
-  const totalXp = Object.values(attributes).reduce(
-    (sum, attr) => sum + (attr.level - 1) * 100 + attr.currentXp,
-    0,
-  );
-  return Math.max(1, Math.floor(totalXp / 100) + 1);
+  return computeOverallLevelFromTotalXp(totalEarnedXp(attributes));
 }
 
 export interface CalendarDay {

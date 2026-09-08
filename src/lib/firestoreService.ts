@@ -18,6 +18,7 @@ import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry } f
 import {
   applyAttributeXp,
   formatLocalDate,
+  totalEarnedXp,
   VOUCH_BONUS_XP,
 } from '@/lib/progression';
 import { isNearDuplicate } from '@/lib/imageUtils';
@@ -272,6 +273,7 @@ export async function vouchForSubmission(
       await updateDoc(authorRef, {
         [`attributes.${sub.attribute}.currentXp`]: nextAttr.currentXp,
         [`attributes.${sub.attribute}.level`]: nextAttr.level,
+        [`attributes.${sub.attribute}.maxXp`]: nextAttr.maxXp,
         [`attributes.${sub.attribute}.verifiedCount`]: increment(1),
         totalVerifiedDeeds: increment(1),
         streakDays: newStreak,
@@ -291,6 +293,7 @@ export async function vouchForSubmission(
     await updateDoc(voucherRef, {
       'attributes.social.currentXp': bonus.attributes.social.currentXp,
       'attributes.social.level': bonus.attributes.social.level,
+      'attributes.social.maxXp': bonus.attributes.social.maxXp,
       level: bonus.overallLevel,
       title: bonus.title,
     });
@@ -325,10 +328,7 @@ export function subscribeToGuildMembers(
 
     snapshot.forEach((d) => {
       const u = d.data() as UserProfile;
-      const totalXp = Object.values(u.attributes).reduce(
-        (sum, attr) => sum + (attr.level - 1) * 100 + attr.currentXp,
-        0
-      );
+      const totalXp = totalEarnedXp(u.attributes);
 
       list.push({
         rank: 0,

@@ -371,6 +371,11 @@ body::-webkit-scrollbar,
   animation: verify-pop 0.45s cubic-bezier(0.2, 1.2, 0.3, 1);
 }
 
+.verify-hit__card.is-level {
+  box-shadow: 0 0 90px color-mix(in srgb, #facc15 40%, transparent);
+  border-color: color-mix(in srgb, #facc15 50%, var(--color-border-subtle));
+}
+
 .verify-hit__kicker {
   font-size: 13px;
   font-weight: 700;
@@ -459,5 +464,19 @@ body::-webkit-scrollbar,
   to {
     transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0);
     opacity: 0;
+  }
+}
+
+.streak-today {
+  animation: streak-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes streak-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-moss) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-moss) 28%, transparent);
   }
 }

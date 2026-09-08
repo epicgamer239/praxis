@@ -152,7 +152,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="w-full h-2 rounded-full bg-canvas-subtle overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${attr.color}`}
+                      className={`h-full rounded-full ${attr.color} transition-[width] duration-700`}
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
