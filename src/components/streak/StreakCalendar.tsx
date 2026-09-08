@@ -65,11 +65,6 @@ export default function StreakCalendar({
           </div>
         ))}
       </div>
-
-      <p className="text-[11px] text-ink-muted mt-3 leading-relaxed">
-        Days light up when a deed is verified by your guild. Miss a day and the
-        streak resets.
-      </p>
     </div>
   );
 }

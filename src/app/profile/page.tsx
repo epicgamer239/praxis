@@ -3,13 +3,33 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
 import { subscribeToUserVerifiedDeeds } from "@/lib/firestoreService";
+import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import { PeerSubmission } from "@/types";
+
+function deedDate(deed: PeerSubmission): string {
+  const raw = (deed.verifiedAt || deed.createdAt) as {
+    toDate?: () => Date;
+    seconds?: number;
+  } | Date | string | null;
+  if (!raw) return "";
+  let d: Date | null = null;
+  if (typeof raw === "object" && raw && "toDate" in raw && typeof raw.toDate === "function") {
+    d = raw.toDate();
+  } else if (raw instanceof Date) {
+    d = raw;
+  } else if (typeof raw === "object" && typeof raw.seconds === "number") {
+    d = new Date(raw.seconds * 1000);
+  } else {
+    const parsed = new Date(raw as string);
+    if (!Number.isNaN(parsed.getTime())) d = parsed;
+  }
+  if (!d) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 export default function ProfilePage() {
   const { profile, loading, signOut } = useAuth();
-  const { toast } = useToast();
   const [verifiedDeeds, setVerifiedDeeds] = useState<PeerSubmission[]>([]);
 
   useEffect(() => {
@@ -25,47 +45,6 @@ export default function ProfilePage() {
       <div className="py-16 text-center text-sm text-ink-muted">Loading…</div>
     );
   }
-
-  const handleExportCSV = () => {
-    if (verifiedDeeds.length === 0) {
-      toast("No verified deeds to export yet.");
-      return;
-    }
-
-    const headers = [
-      "Deed Title",
-      "Category",
-      "XP Reward",
-      "Vouchers",
-      "Field Note",
-    ];
-    const rows = verifiedDeeds.map((d) => [
-      `"${d.questTitle.replace(/"/g, '""')}"`,
-      `"${d.attributeLabel}"`,
-      d.xpReward,
-      `"${d.vouchedByNames.join("; ")}"`,
-      `"${(d.fieldNote || "").replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) => r.join(",")),
-    ].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `${profile.name.replace(/\s+/g, "_")}_verified_deeds.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast("Audit ledger downloaded as CSV.");
-  };
 
   const attributes = [
     {
@@ -162,41 +141,51 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-ink-secondary">
-            Deed Chronicle
-          </h3>
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-ink-secondary">Your deeds</h3>
 
-          <div className="p-6 rounded-2xl border border-border-subtle bg-canvas-card space-y-4">
-            <div className="space-y-4 divide-y divide-border-subtle text-xs max-h-72 overflow-y-auto">
-              {verifiedDeeds.length === 0 ? (
-                <p className="text-ink-muted">
-                  No verified deeds yet. Complete daily quests and earn 2 guild
-                  vouches.
-                </p>
-              ) : (
-                verifiedDeeds.map((deed) => (
-                  <div key={deed.id} className="pt-3 first:pt-0">
-                    <p className="font-medium text-ink-primary">
-                      {deed.questTitle}
-                    </p>
-                    <p className="text-ink-secondary mt-0.5">
-                      {deed.attributeLabel} · +{deed.xpReward} XP · Vouched by{" "}
-                      {deed.vouchedByNames.join(" and ")}
-                    </p>
+          {verifiedDeeds.length === 0 ? (
+            <p className="text-sm text-ink-muted px-1">
+              Nothing verified yet. Finished deeds land here.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {verifiedDeeds.map((deed) => (
+                <div
+                  key={deed.id}
+                  className="p-4 rounded-2xl border border-border-subtle bg-canvas-card space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p
+                        className={`text-xs font-medium ${ATTRIBUTE_TEXT[deed.attribute]}`}
+                      >
+                        {deed.attributeLabel} · +{deed.xpReward} XP
+                      </p>
+                      <p className="text-sm font-medium text-ink-primary mt-1 leading-snug">
+                        {deed.questTitle}
+                      </p>
+                    </div>
+                    {deedDate(deed) && (
+                      <span className="text-xs text-ink-muted shrink-0">
+                        {deedDate(deed)}
+                      </span>
+                    )}
                   </div>
-                ))
-              )}
+                  {deed.fieldNote && (
+                    <p className="text-xs text-ink-secondary italic">
+                      &ldquo;{deed.fieldNote}&rdquo;
+                    </p>
+                  )}
+                  {deed.vouchedByNames.length > 0 && (
+                    <p className="text-xs text-ink-muted">
+                      Vouched by {deed.vouchedByNames.join(" and ")}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="w-full py-2.5 rounded-xl text-xs font-medium text-ink-secondary hover:text-ink-primary bg-canvas-subtle hover:bg-canvas-hover border border-border-subtle transition-colors"
-            >
-              Export verified deed audit ledger (CSV)
-            </button>
-          </div>
+          )}
         </div>
 
         <button

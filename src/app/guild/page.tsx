@@ -11,6 +11,7 @@ import {
 } from "@/lib/firestoreService";
 import { PeerSubmission, Guild, LeaderboardEntry } from "@/types";
 import { getWeekStart } from "@/lib/progression";
+import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 
@@ -209,13 +210,19 @@ export default function GuildPage() {
               return (
                 <div
                   key={sub.id}
-                  className="p-5 rounded-2xl border border-border-subtle bg-canvas-card space-y-4"
+                  className={`p-5 rounded-2xl border bg-canvas-card space-y-4 ${
+                    isVerified
+                      ? "border-attribute-vitality/50"
+                      : "border-border-subtle"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-ink-primary font-medium">
                       {sub.authorName} {isAuthor && "(You)"}
                     </span>
-                    <span className="text-attribute-social font-medium">
+                    <span
+                      className={`${ATTRIBUTE_TEXT[sub.attribute]} font-medium`}
+                    >
                       {sub.attributeLabel} · +{sub.xpReward} XP
                     </span>
                   </div>
@@ -256,7 +263,11 @@ export default function GuildPage() {
 
                   <div className="h-1.5 rounded-full bg-canvas-subtle overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-attribute-civic transition-[width] duration-500"
+                      className={`h-full rounded-full transition-[width,background-color] duration-500 ${
+                        isVerified
+                          ? "bg-attribute-vitality"
+                          : "bg-attribute-civic"
+                      }`}
                       style={{
                         width: `${Math.min(
                           100,

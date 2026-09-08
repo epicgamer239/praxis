@@ -2,18 +2,11 @@
 import React from "react";
 import Link from "next/link";
 import { Quest } from "@/types";
-import { cn } from "@/lib/utils";
+import { ATTRIBUTE_TEXT, cn } from "@/lib/utils";
 
 interface QuestCardProps {
   quest: Quest;
 }
-
-const attributeColorMap = {
-  wisdom: "text-attribute-wisdom",
-  social: "text-attribute-social",
-  civic: "text-attribute-civic",
-  vitality: "text-attribute-vitality",
-};
 
 export default function QuestCard({ quest }: QuestCardProps) {
   return (
@@ -30,7 +23,7 @@ export default function QuestCard({ quest }: QuestCardProps) {
         <span
           className={cn(
             "text-xs font-medium",
-            attributeColorMap[quest.attribute],
+            ATTRIBUTE_TEXT[quest.attribute],
           )}
         >
           {quest.attributeLabel} · +{quest.xpReward} XP

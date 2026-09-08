@@ -14,7 +14,7 @@ import {
   subscribeToUserSubmissionsToday,
 } from "@/lib/firestoreService";
 import { PeerSubmission, Quest } from "@/types";
-import { formatLocalDate } from "@/lib/progression";
+import { formatLocalDate, VOUCH_BONUS_XP } from "@/lib/progression";
 
 export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
@@ -169,9 +169,11 @@ export default function DashboardPage() {
         href="/guild"
         className="block p-4 rounded-2xl border border-border-subtle bg-canvas-card"
       >
-        <p className="text-sm font-medium text-ink-primary">Review guild proofs</p>
+        <p className="text-sm font-medium text-ink-primary">
+          Help others · +{VOUCH_BONUS_XP} Social
+        </p>
         <p className="text-xs text-ink-muted mt-1">
-          Two vouches unlock XP for a deed.
+          Vouch a guildmate&apos;s proof. You get XP too.
         </p>
       </Link>
 

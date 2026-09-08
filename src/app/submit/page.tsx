@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useRef, useMemo, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -10,6 +9,8 @@ import { differenceHash, fileToBase64Compressed } from "@/lib/imageUtils";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { submitProofOfWork } from "@/lib/firestoreService";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
+import { formatLocalDate } from "@/lib/progression";
+import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
 
 function SubmitProofContent() {
@@ -20,7 +21,7 @@ function SubmitProofContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const questIdParam = searchParams.get("questId");
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => formatLocalDate(), []);
 
   const activeQuest = useMemo(() => {
     const quests = getDailyQuestsForGuild(
@@ -110,7 +111,9 @@ function SubmitProofContent() {
 
       <div className="space-y-4">
         <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card space-y-3">
-          <span className="text-xs font-medium text-attribute-social">
+          <span
+            className={`text-xs font-medium ${ATTRIBUTE_TEXT[activeQuest.attribute]}`}
+          >
             {activeQuest.attributeLabel} · +{activeQuest.xpReward} XP
           </span>
           <h3 className="text-base font-medium text-ink-primary leading-snug">
