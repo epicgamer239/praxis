@@ -32,6 +32,35 @@ export function getTitleForLevel(level: number): string {
   return `Level ${level} Novice`;
 }
 
+export const VOUCH_BONUS_XP = 5;
+
+export function applyAttributeXp<
+  T extends Record<string, { level: number; currentXp: number; maxXp: number; verifiedCount?: number }>,
+>(attributes: T, key: keyof T & string, amount: number, bumpVerified = false) {
+  const attr = attributes[key];
+  let xp = attr.currentXp + amount;
+  let level = attr.level;
+  while (xp >= attr.maxXp) {
+    xp -= attr.maxXp;
+    level += 1;
+  }
+  const next = {
+    ...attributes,
+    [key]: {
+      ...attr,
+      currentXp: xp,
+      level,
+      verifiedCount: (attr.verifiedCount || 0) + (bumpVerified ? 1 : 0),
+    },
+  };
+  const overallLevel = computeOverallLevelFromAttributes(next);
+  return {
+    attributes: next,
+    overallLevel,
+    title: getTitleForLevel(overallLevel),
+  };
+}
+
 /** Overall character level from attribute XP pools (100 XP per level). */
 export function computeOverallLevelFromAttributes(
   attributes: Record<

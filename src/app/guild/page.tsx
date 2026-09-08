@@ -13,6 +13,7 @@ import {
 import { PeerSubmission, Guild, LeaderboardEntry } from "@/types";
 import { getWeekStart } from "@/lib/progression";
 import GuildGate from "@/components/guild/GuildGate";
+import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 
 function submissionDate(sub: PeerSubmission): Date | null {
   const raw = (sub.verifiedAt || sub.createdAt) as {
@@ -41,6 +42,7 @@ export default function GuildPage() {
     "weekly",
   );
 
+  const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const [inspectedPhoto, setInspectedPhoto] = useState<{
     url: string;
     title: string;
@@ -146,8 +148,23 @@ export default function GuildPage() {
 
   const handleVouch = async (sub: PeerSubmission) => {
     try {
-      await vouchForSubmission(sub.id, profile.id, profile.name);
-      toast(`Vouched for ${sub.authorName}'s deed.`);
+      const result = await vouchForSubmission(sub.id, profile.id, profile.name);
+      if (result.verified) {
+        setHit({
+          title: "Verified",
+          body: `${result.authorName}'s deed is locked in.`,
+          xp: result.xpReward,
+          xpLabel: result.attributeLabel,
+          extra: `You got +${result.bonusXp} Social for the vouch.`,
+        });
+      } else {
+        setHit({
+          title: "Vouched",
+          body: `One more guildmate and ${result.authorName} levels this up.`,
+          xp: result.bonusXp,
+          xpLabel: "Social",
+        });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Cannot vouch.";
       toast(message);
@@ -361,6 +378,8 @@ export default function GuildPage() {
           </div>
         </div>
       </div>
+
+      <VerifyHit hit={hit} onDone={() => setHit(null)} />
 
       {inspectedPhoto && (
         <div

@@ -16,10 +16,11 @@ import {
 } from 'firebase/firestore';
 import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry } from '@/types';
 import {
-  computeOverallLevelFromAttributes,
+  applyAttributeXp,
   formatLocalDate,
-  getTitleForLevel,
+  VOUCH_BONUS_XP,
 } from '@/lib/progression';
+import { isNearDuplicate } from '@/lib/imageUtils';
 
 // 1. Join Guild by 5-character Code (or full Guild ID)
 export async function joinGuildByCode(userId: string, codeOrId: string): Promise<Guild> {
@@ -111,8 +112,16 @@ export async function submitProofOfWork(params: {
   attributeLabel: string;
   xpReward: number;
   photoBase64: string;
+  photoHash?: string;
   fieldNote: string;
 }) {
+  if (params.photoHash) {
+    const duped = await guildHasNearDuplicate(params.guildId, params.photoHash);
+    if (duped) {
+      throw new Error("This photo was already used. Take a new one.");
+    }
+  }
+
   const submissionId = `sub_${Date.now()}`;
   const submissionRef = doc(db, 'submissions', submissionId);
 
@@ -127,6 +136,7 @@ export async function submitProofOfWork(params: {
     attributeLabel: params.attributeLabel,
     xpReward: params.xpReward,
     photoBase64: params.photoBase64,
+    photoHash: params.photoHash,
     fieldNote: params.fieldNote,
     vouchesReceived: 0,
     requiredVouches: 2,
@@ -137,6 +147,21 @@ export async function submitProofOfWork(params: {
   };
 
   await setDoc(submissionRef, newSubmission);
+
+  if (params.photoHash) {
+    await updateDoc(doc(db, 'users', params.userId), {
+      photoHashes: arrayUnion(params.photoHash),
+    });
+  }
+}
+
+export async function guildHasNearDuplicate(guildId: string, hash: string) {
+  const snap = await getDocs(query(collection(db, 'submissions'), where('guildId', '==', guildId)));
+  for (const d of snap.docs) {
+    const existing = (d.data() as PeerSubmission).photoHash;
+    if (existing && isNearDuplicate(hash, existing)) return true;
+  }
+  return false;
 }
 
 // 5. Listen to Today's Submissions by Current User
@@ -191,11 +216,13 @@ export async function vouchForSubmission(
   submissionId: string,
   voucherId: string,
   voucherName: string
-): Promise<boolean> {
+) {
   const subRef = doc(db, 'submissions', submissionId);
   const snap = await getDoc(subRef);
 
-  if (!snap.exists()) return false;
+  if (!snap.exists()) {
+    throw new Error('Submission is gone.');
+  }
   const sub = snap.data() as PeerSubmission;
 
   if (sub.userId === voucherId) {
@@ -203,7 +230,7 @@ export async function vouchForSubmission(
   }
 
   if (sub.vouchedBy.includes(voucherId)) {
-    return false;
+    throw new Error('You already vouched for this.');
   }
 
   const updatedVouchers = [...sub.vouchedBy, voucherId];
@@ -225,11 +252,7 @@ export async function vouchForSubmission(
 
     if (authorSnap.exists()) {
       const author = authorSnap.data() as UserProfile;
-      const attr = author.attributes[sub.attribute];
-      const newXp = attr.currentXp + sub.xpReward;
-      const leveledUp = newXp >= attr.maxXp;
-      const nextAttrXp = leveledUp ? newXp - attr.maxXp : newXp;
-      const nextAttrLevel = leveledUp ? attr.level + 1 : attr.level;
+      const gained = applyAttributeXp(author.attributes, sub.attribute, sub.xpReward, true);
 
       const today = formatLocalDate();
       const yesterdayDate = new Date();
@@ -238,7 +261,6 @@ export async function vouchForSubmission(
 
       let newStreak = author.streakDays || 0;
       if (author.lastActiveDate === today) {
-        // Already counted today — keep streak
         newStreak = Math.max(newStreak, 1);
       } else if (author.lastActiveDate === yesterday) {
         newStreak = (newStreak || 0) + 1;
@@ -246,33 +268,42 @@ export async function vouchForSubmission(
         newStreak = 1;
       }
 
-      const nextAttributes = {
-        ...author.attributes,
-        [sub.attribute]: {
-          ...attr,
-          currentXp: nextAttrXp,
-          level: nextAttrLevel,
-          verifiedCount: attr.verifiedCount + 1,
-        },
-      };
-      const overallLevel = computeOverallLevelFromAttributes(nextAttributes);
-      const overallTitle = getTitleForLevel(overallLevel);
-
+      const nextAttr = gained.attributes[sub.attribute];
       await updateDoc(authorRef, {
-        [`attributes.${sub.attribute}.currentXp`]: nextAttrXp,
-        [`attributes.${sub.attribute}.level`]: nextAttrLevel,
+        [`attributes.${sub.attribute}.currentXp`]: nextAttr.currentXp,
+        [`attributes.${sub.attribute}.level`]: nextAttr.level,
         [`attributes.${sub.attribute}.verifiedCount`]: increment(1),
         totalVerifiedDeeds: increment(1),
         streakDays: newStreak,
         lastActiveDate: today,
         activeDates: arrayUnion(today),
-        level: overallLevel,
-        title: overallTitle,
+        level: gained.overallLevel,
+        title: gained.title,
       });
     }
   }
 
-  return true;
+  const voucherRef = doc(db, 'users', voucherId);
+  const voucherSnap = await getDoc(voucherRef);
+  if (voucherSnap.exists()) {
+    const voucher = voucherSnap.data() as UserProfile;
+    const bonus = applyAttributeXp(voucher.attributes, 'social', VOUCH_BONUS_XP);
+    await updateDoc(voucherRef, {
+      'attributes.social.currentXp': bonus.attributes.social.currentXp,
+      'attributes.social.level': bonus.attributes.social.level,
+      level: bonus.overallLevel,
+      title: bonus.title,
+    });
+  }
+
+  return {
+    verified: isNowVerified,
+    bonusXp: VOUCH_BONUS_XP,
+    authorName: sub.authorName,
+    questTitle: sub.questTitle,
+    xpReward: sub.xpReward,
+    attributeLabel: sub.attributeLabel,
+  };
 }
 
 // 8. Live Guild Standings Leaderboard Listener

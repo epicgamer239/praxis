@@ -23,6 +23,7 @@ export interface UserProfile {
   activeDates?: string[];
   totalVerifiedDeeds: number;
   nudgedByNames?: string[]; // Friends who pinged the user
+  photoHashes?: string[];
   attributes: Record<AttributeType, AttributeStat>;
 }
 
@@ -62,6 +63,7 @@ export interface PeerSubmission {
   attributeLabel: string;
   xpReward: number;
   photoBase64: string;
+  photoHash?: string;
   fieldNote: string;
   vouchesReceived: number;
   requiredVouches: number;

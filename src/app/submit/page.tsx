@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { fileToBase64Compressed } from "@/lib/imageUtils";
+import { differenceHash, fileToBase64Compressed } from "@/lib/imageUtils";
 import { submitProofOfWork } from "@/lib/firestoreService";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
 import GuildGate from "@/components/guild/GuildGate";
@@ -67,6 +67,7 @@ function SubmitProofContent() {
 
     setIsSubmitting(true);
     try {
+      const photoHash = await differenceHash(preview);
       await submitProofOfWork({
         userId: profile.id,
         authorName: profile.name,
@@ -77,13 +78,14 @@ function SubmitProofContent() {
         attributeLabel: activeQuest.attributeLabel,
         xpReward: activeQuest.xpReward,
         photoBase64: preview,
+        photoHash,
         fieldNote: fieldNote || "Completed real-world interaction in person.",
       });
 
       toast("Proof published to guild feed!");
       router.push("/guild");
     } catch (err) {
-      toast("Failed to publish proof.");
+      toast(err instanceof Error ? err.message : "Failed to publish proof.");
     } finally {
       setIsSubmitting(false);
     }

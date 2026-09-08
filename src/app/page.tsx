@@ -1,12 +1,13 @@
 // src/app/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AttributeAmoeba from "@/components/amoeba/AttributeAmoeba";
 import QuestCard from "@/components/quests/QuestCard";
 import GuildGate from "@/components/guild/GuildGate";
 import StreakCalendar from "@/components/streak/StreakCalendar";
+import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { useAuth } from "@/context/AuthContext";
 import { getDailyQuestsForGuild } from "@/lib/questBank";
 import {
@@ -20,6 +21,8 @@ export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
   const [userSubmissions, setUserSubmissions] = useState<PeerSubmission[]>([]);
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
+  const [hit, setHit] = useState<VerifyHitPayload | null>(null);
+  const seenVerified = useRef<Set<string> | null>(null);
 
   const todayStr = useMemo(() => formatLocalDate(), []);
   const baseQuests = useMemo(() => {
@@ -53,7 +56,27 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!profile?.id) return;
+    let first = true;
     const unsub = subscribeToUserSubmissionsToday(profile.id, (subs) => {
+      if (first) {
+        first = false;
+        seenVerified.current = new Set(
+          subs.filter((s) => s.status === "verified").map((s) => s.id),
+        );
+      } else if (seenVerified.current) {
+        for (const sub of subs) {
+          if (sub.status === "verified" && !seenVerified.current.has(sub.id)) {
+            seenVerified.current.add(sub.id);
+            setHit({
+              title: "Verified",
+              body: sub.questTitle,
+              xp: sub.xpReward,
+              xpLabel: sub.attributeLabel,
+            });
+            break;
+          }
+        }
+      }
       setUserSubmissions(subs);
     });
     return () => unsub();
@@ -115,6 +138,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <VerifyHit hit={hit} onDone={() => setHit(null)} />
       {nudgeBannerText && (
         <div className="p-4 rounded-2xl border border-attribute-social bg-canvas-card space-y-3">
           <p className="text-sm text-ink-primary leading-snug">
