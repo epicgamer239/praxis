@@ -8,7 +8,7 @@ import { subscribeToUserVerifiedDeeds } from "@/lib/firestoreService";
 import { PeerSubmission } from "@/types";
 
 export default function ProfilePage() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, signOut } = useAuth();
   const { toast } = useToast();
   const [verifiedDeeds, setVerifiedDeeds] = useState<PeerSubmission[]>([]);
 
@@ -198,6 +198,14 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="praxis-btn praxis-btn--ghost praxis-btn--pill"
+        >
+          Log out
+        </button>
       </div>
     </div>
   );
