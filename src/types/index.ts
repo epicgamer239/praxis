@@ -23,9 +23,21 @@ export interface UserProfile {
   /** Calendar days (YYYY-MM-DD) with at least one verified deed. */
   activeDates?: string[];
   totalVerifiedDeeds: number;
+  /** Times this user has vouched for a guildmate's proof. */
+  totalVouchesGiven?: number;
   nudgedByNames?: string[]; // Friends who pinged the user
   photoHashes?: string[];
   attributes: Record<AttributeType, AttributeStat>;
+  /** Monday YYYY-MM-DD for the current reroll week. */
+  rerollWeekStart?: string;
+  /** Rerolls left in the current week (max 3). */
+  rerollsRemaining?: number;
+  /** Local date the saved daily board belongs to. */
+  dailyQuestDate?: string;
+  /** Three quest ids for today's board after any rerolls. */
+  dailyQuestIds?: string[];
+  /** Last app heartbeat (Firestore Timestamp or millis). */
+  lastSeenAt?: unknown;
 }
 
 export interface Guild {
@@ -82,4 +94,26 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
   deedsCount: number;
   totalXp: number;
+}
+
+/** Rich guild roster row for clan-style member cards. */
+export interface GuildMemberProfile {
+  userId: string;
+  name: string;
+  title: string;
+  level: number;
+  streakDays: number;
+  totalVerifiedDeeds: number;
+  totalVouchesGiven: number;
+  totalXp: number;
+  lastSeenAtMs: number | null;
+  isCurrentUser: boolean;
+}
+
+export interface GuildActivityItem {
+  id: string;
+  atMs: number;
+  kind: 'submitted' | 'verified';
+  text: string;
+  href?: string;
 }

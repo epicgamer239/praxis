@@ -51,7 +51,12 @@ function buildDefaultProfile(
     lastActiveDate: "",
     activeDates: [],
     totalVerifiedDeeds: 0,
+    totalVouchesGiven: 0,
     attributes: defaultAttributes(),
+    rerollWeekStart: "",
+    rerollsRemaining: 3,
+    dailyQuestDate: "",
+    dailyQuestIds: [],
   };
 }
 

@@ -7,6 +7,8 @@ import { loadGeneratedQuests } from '@/lib/questRuntime';
 
 export type QuestSetting = 'outdoor' | 'indoor' | 'either';
 
+export const WEEKLY_REROLLS = 3;
+
 type BankQuest = Omit<Quest, 'id'> & { setting: QuestSetting };
 
 export const MASTER_QUEST_BANK: BankQuest[] = [
@@ -160,16 +162,46 @@ function weatherWeight(setting: QuestSetting, mood: WeatherMood): number {
   return 1;
 }
 
-/** Deterministic weighted picks so the same day+guild+weather stay stable. */
+function parseBankIndex(questId: string): number | null {
+  const match = /^quest_\d{4}-\d{2}-\d{2}_(\d+)$/.exec(questId);
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+function questFromBankIndex(dateStr: string, bankIdx: number): Quest {
+  const { setting: _setting, ...quest } = MASTER_QUEST_BANK[bankIdx];
+  return {
+    id: `quest_${dateStr}_${bankIdx}`,
+    ...quest,
+    dateKey: dateStr,
+  };
+}
+
+function questFromGenerated(
+  dateStr: string,
+  idx: number,
+  bank: GeneratedBankQuest,
+): Quest {
+  const { setting: _setting, source: _source, ...quest } = bank;
+  return {
+    id: `quest_${dateStr}_g_${idx}`,
+    ...quest,
+    dateKey: dateStr,
+  };
+}
+
+/** Deterministic weighted picks so the same day+user+weather stay stable. */
 function pickQuestIndices(
   dateStr: string,
-  guildCode: string,
+  userSeed: string,
   mood: WeatherMood,
   count: number,
+  exclude: Set<number> = new Set(),
+  salt = 0,
 ): number[] {
-  const hash = getDayHash(dateStr, `${guildCode}-${mood}`);
+  const hash = getDayHash(dateStr, `${userSeed}-${mood}-s${salt}`);
   const picked: number[] = [];
-  const used = new Set<number>();
+  const used = new Set<number>(exclude);
 
   for (let n = 0; n < count; n++) {
     let total = 0;
@@ -185,8 +217,7 @@ function pickQuestIndices(
     }
     if (total <= 0) break;
 
-    let cursor = ((hash >> (n * 5)) + n * 17) % 10000;
-    let target = (cursor / 10000) * total;
+    let target = ((((hash >> (n * 5)) + n * 17 + salt * 31) % 10000) / 10000) * total;
     let chosen = 0;
     for (let i = 0; i < weights.length; i++) {
       target -= weights[i];
@@ -204,61 +235,51 @@ function pickQuestIndices(
 }
 
 /**
- * Returns 3 daily quests. Uses curated bank + optional Gemini local bank.
+ * Returns 3 daily quests for one user. Shared weather bias, unique seed per person
+ * so guildmates often overlap but rarely share the full board.
  * Prefer 2 curated + 1 local when local quests exist.
  */
+export function getDailyQuestsForUser(
+  dateStr: string,
+  userId: string,
+  mood: WeatherMood = 'unknown',
+  extras: GeneratedBankQuest[] = [],
+): Quest[] {
+  const seed = userId || 'DEFAULT';
+  const local = extras.length > 0 ? extras : loadGeneratedQuests(dateStr);
+
+  if (local.length === 0) {
+    const selectedIndices = pickQuestIndices(dateStr, seed, mood, 3);
+    return selectedIndices.map((bankIdx) => questFromBankIndex(dateStr, bankIdx));
+  }
+
+  const curatedIdx = pickQuestIndices(dateStr, seed, mood, 2);
+  const localIdx = pickFromGenerated(dateStr, seed, mood, local, 1);
+
+  const curated = curatedIdx.map((bankIdx) => questFromBankIndex(dateStr, bankIdx));
+  const generated = localIdx.map((i) => questFromGenerated(dateStr, i, local[i]));
+
+  return [...curated, ...generated];
+}
+
+/** @deprecated Use getDailyQuestsForUser — kept for any straggling imports. */
 export function getDailyQuestsForGuild(
   dateStr: string,
   guildCode = 'DEFAULT',
   mood: WeatherMood = 'unknown',
   extras: GeneratedBankQuest[] = [],
 ): Quest[] {
-  const local = extras.length > 0 ? extras : loadGeneratedQuests(dateStr);
-
-  if (local.length === 0) {
-    const selectedIndices = pickQuestIndices(dateStr, guildCode, mood, 3);
-    return selectedIndices.map((bankIdx) => {
-      const { setting: _setting, ...quest } = MASTER_QUEST_BANK[bankIdx];
-      return {
-        id: `quest_${dateStr}_${bankIdx}`,
-        ...quest,
-        dateKey: dateStr,
-      };
-    });
-  }
-
-  const curatedIdx = pickQuestIndices(dateStr, guildCode, mood, 2);
-  const localIdx = pickFromGenerated(dateStr, guildCode, mood, local, 1);
-
-  const curated = curatedIdx.map((bankIdx) => {
-    const { setting: _setting, ...quest } = MASTER_QUEST_BANK[bankIdx];
-    return {
-      id: `quest_${dateStr}_${bankIdx}`,
-      ...quest,
-      dateKey: dateStr,
-    };
-  });
-
-  const generated = localIdx.map((i) => {
-    const { setting: _setting, source: _source, ...quest } = local[i];
-    return {
-      id: `quest_${dateStr}_g_${i}`,
-      ...quest,
-      dateKey: dateStr,
-    };
-  });
-
-  return [...curated, ...generated];
+  return getDailyQuestsForUser(dateStr, guildCode, mood, extras);
 }
 
 function pickFromGenerated(
   dateStr: string,
-  guildCode: string,
+  userSeed: string,
   mood: WeatherMood,
   local: GeneratedBankQuest[],
   count: number,
 ): number[] {
-  const hash = getDayHash(dateStr, `${guildCode}-gen-${mood}`);
+  const hash = getDayHash(dateStr, `${userSeed}-gen-${mood}`);
   const picked: number[] = [];
   const used = new Set<number>();
 
@@ -291,6 +312,66 @@ function pickFromGenerated(
   return picked;
 }
 
+/** Resolve today's board from saved overrides or fresh per-user picks. */
+export function resolveDailyBoard(
+  dateStr: string,
+  userId: string,
+  mood: WeatherMood,
+  extras: GeneratedBankQuest[],
+  savedDate?: string | null,
+  savedIds?: string[] | null,
+): Quest[] {
+  if (
+    savedDate === dateStr &&
+    Array.isArray(savedIds) &&
+    savedIds.length === 3
+  ) {
+    const resolved = savedIds
+      .map((id) => getQuestById(id))
+      .filter((q): q is Quest => q !== null);
+    if (resolved.length === 3) return resolved;
+  }
+  return getDailyQuestsForUser(dateStr, userId, mood, extras);
+}
+
+/**
+ * Pick a replacement curated quest for one slot.
+ * Always draws from the master bank so submit resolution stays reliable.
+ */
+export function pickRerollQuest(
+  dateStr: string,
+  userId: string,
+  mood: WeatherMood,
+  currentIds: string[],
+  slotIndex: number,
+  salt: number,
+): Quest {
+  const exclude = new Set<number>();
+  for (const id of currentIds) {
+    const idx = parseBankIndex(id);
+    if (idx !== null) exclude.add(idx);
+  }
+
+  const picked = pickQuestIndices(
+    dateStr,
+    userId,
+    mood,
+    1,
+    exclude,
+    salt + slotIndex * 7 + 1,
+  );
+  if (picked.length === 0) {
+    // Exhausted exclusions — fall back to any unused bank index
+    for (let i = 0; i < MASTER_QUEST_BANK.length; i++) {
+      if (!exclude.has(i)) {
+        return questFromBankIndex(dateStr, i);
+      }
+    }
+    return questFromBankIndex(dateStr, 0);
+  }
+  return questFromBankIndex(dateStr, picked[0]);
+}
+
 /** Resolve a quest by id even if it is not in today's weather-biased set. */
 export function getQuestById(questId: string): Quest | null {
   const gen = /^quest_(\d{4}-\d{2}-\d{2})_g_(\d+)$/.exec(questId);
@@ -300,8 +381,7 @@ export function getQuestById(questId: string): Quest | null {
     const local = loadGeneratedQuests(dateStr);
     const bank = local[idx];
     if (!bank) return null;
-    const { setting: _setting, source: _source, ...quest } = bank;
-    return { id: questId, ...quest, dateKey: dateStr };
+    return questFromGenerated(dateStr, idx, bank);
   }
 
   const match = /^quest_(\d{4}-\d{2}-\d{2})_(\d+)$/.exec(questId);
@@ -310,12 +390,7 @@ export function getQuestById(questId: string): Quest | null {
   const bankIdx = Number(match[2]);
   const bank = MASTER_QUEST_BANK[bankIdx];
   if (!bank) return null;
-  const { setting: _setting, ...quest } = bank;
-  return {
-    id: questId,
-    ...quest,
-    dateKey: dateStr,
-  };
+  return questFromBankIndex(dateStr, bankIdx);
 }
 
 export function attributeOfBankIndex(bankIdx: number): AttributeType | null {

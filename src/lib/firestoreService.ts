@@ -14,10 +14,11 @@ import {
   Timestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry } from '@/types';
+import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry, Quest, GuildMemberProfile } from '@/types';
 import {
   applyAttributeXp,
   formatLocalDate,
+  getWeekStart,
   totalEarnedXp,
   VOUCH_BONUS_XP,
 } from '@/lib/progression';
@@ -26,6 +27,15 @@ import {
   normalizeAttributeKey,
   normalizeAttributes,
 } from '@/lib/attributes';
+import {
+  WEEKLY_REROLLS,
+  getDailyQuestsForUser,
+  pickRerollQuest,
+  resolveDailyBoard,
+} from '@/lib/questBank';
+import { WeatherMood } from '@/lib/fieldConditions';
+import { GeneratedBankQuest } from '@/lib/generatedQuests';
+import { toMillis } from '@/lib/presence';
 
 function normalizeSubmission(raw: Record<string, unknown>): PeerSubmission {
   const attribute = normalizeAttributeKey(raw.attribute as string);
@@ -334,6 +344,7 @@ export async function vouchForSubmission(
       attributes: bonus.attributes,
       level: bonus.overallLevel,
       title: bonus.title,
+      totalVouchesGiven: increment(1),
     });
   }
 
@@ -347,11 +358,11 @@ export async function vouchForSubmission(
   };
 }
 
-// 8. Live Guild Standings Leaderboard Listener
+// 8. Live Guild Roster Listener
 export function subscribeToGuildMembers(
   memberIds: string[],
   currentUserId: string,
-  callback: (entries: LeaderboardEntry[]) => void
+  callback: (entries: GuildMemberProfile[]) => void
 ) {
   if (!memberIds || memberIds.length === 0) {
     callback([]);
@@ -362,7 +373,7 @@ export function subscribeToGuildMembers(
   const q = query(usersRef, where('id', 'in', memberIds.slice(0, 10)));
 
   return onSnapshot(q, (snapshot) => {
-    const list: LeaderboardEntry[] = [];
+    const list: GuildMemberProfile[] = [];
 
     snapshot.forEach((d) => {
       const uRaw = d.data() as UserProfile & {
@@ -372,19 +383,45 @@ export function subscribeToGuildMembers(
       const totalXp = totalEarnedXp(attributes);
 
       list.push({
-        rank: 0,
         userId: uRaw.id,
         name: uRaw.name,
+        title: uRaw.title || `Level ${uRaw.level || 1}`,
+        level: uRaw.level || 1,
+        streakDays: uRaw.streakDays || 0,
+        totalVerifiedDeeds: uRaw.totalVerifiedDeeds || 0,
+        totalVouchesGiven: uRaw.totalVouchesGiven || 0,
+        totalXp,
+        lastSeenAtMs: toMillis(uRaw.lastSeenAt),
         isCurrentUser: uRaw.id === currentUserId,
-        deedsCount: uRaw.totalVerifiedDeeds || 0,
-        totalXp: totalXp,
       });
     });
 
-    list.sort((a, b) => b.deedsCount - a.deedsCount || b.totalXp - a.totalXp);
-    list.forEach((item, idx) => (item.rank = idx + 1));
+    list.sort(
+      (a, b) =>
+        b.totalVerifiedDeeds - a.totalVerifiedDeeds || b.totalXp - a.totalXp,
+    );
 
     callback(list);
+  });
+}
+
+export function membersToLeaderboard(
+  members: GuildMemberProfile[],
+): LeaderboardEntry[] {
+  return members.map((m, idx) => ({
+    rank: idx + 1,
+    userId: m.userId,
+    name: m.name,
+    isCurrentUser: m.isCurrentUser,
+    deedsCount: m.totalVerifiedDeeds,
+    totalXp: m.totalXp,
+  }));
+}
+
+/** Heartbeat for online presence. */
+export async function touchLastSeen(userId: string) {
+  await updateDoc(doc(db, 'users', userId), {
+    lastSeenAt: Timestamp.now(),
   });
 }
 
@@ -423,4 +460,102 @@ export async function clearUserNudges(userId: string) {
   await updateDoc(userRef, {
     nudgedByNames: [],
   });
+}
+
+/** Reset weekly reroll budget when the Monday key rolls over. */
+export async function ensureRerollBudget(userId: string, profile: UserProfile) {
+  const weekStart = formatLocalDate(getWeekStart());
+  if (
+    profile.rerollWeekStart === weekStart &&
+    typeof profile.rerollsRemaining === 'number'
+  ) {
+    return;
+  }
+  await updateDoc(doc(db, 'users', userId), {
+    rerollWeekStart: weekStart,
+    rerollsRemaining: WEEKLY_REROLLS,
+  });
+}
+
+/**
+ * Swap one pending daily quest. Costs 1 weekly reroll.
+ * Saves the full 3-slot board on first reroll of the day.
+ */
+export async function rerollDailyQuestSlot(opts: {
+  userId: string;
+  slotIndex: number;
+  mood: WeatherMood;
+  localQuests?: GeneratedBankQuest[];
+  lockedQuestIds: string[];
+}): Promise<{ questIds: string[]; remaining: number; replacement: Quest }> {
+  const { userId, slotIndex, mood, localQuests = [], lockedQuestIds } = opts;
+  if (slotIndex < 0 || slotIndex > 2) {
+    throw new Error('Invalid quest slot.');
+  }
+
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) throw new Error('Profile not found.');
+
+  const profile = snap.data() as UserProfile;
+  const today = formatLocalDate();
+  const weekStart = formatLocalDate(getWeekStart());
+
+  let remaining =
+    profile.rerollWeekStart === weekStart
+      ? (profile.rerollsRemaining ?? WEEKLY_REROLLS)
+      : WEEKLY_REROLLS;
+
+  if (remaining <= 0) {
+    throw new Error('No rerolls left this week.');
+  }
+
+  const board = resolveDailyBoard(
+    today,
+    userId,
+    mood,
+    localQuests,
+    profile.dailyQuestDate,
+    profile.dailyQuestIds,
+  );
+
+  const current = board[slotIndex];
+  if (!current) throw new Error('Quest slot missing.');
+  if (lockedQuestIds.includes(current.id)) {
+    throw new Error('That quest already has a submission.');
+  }
+
+  const currentIds = board.map((q) => q.id);
+  const salt = WEEKLY_REROLLS - remaining + 1;
+  const replacement = pickRerollQuest(
+    today,
+    userId,
+    mood,
+    currentIds,
+    slotIndex,
+    salt,
+  );
+
+  const nextIds = [...currentIds];
+  nextIds[slotIndex] = replacement.id;
+  remaining -= 1;
+
+  await updateDoc(userRef, {
+    dailyQuestDate: today,
+    dailyQuestIds: nextIds,
+    rerollWeekStart: weekStart,
+    rerollsRemaining: remaining,
+  });
+
+  return { questIds: nextIds, remaining, replacement };
+}
+
+/** Fresh per-user board helper for callers that need ids without overrides. */
+export function previewDailyQuestIds(
+  dateStr: string,
+  userId: string,
+  mood: WeatherMood,
+  localQuests: GeneratedBankQuest[] = [],
+): string[] {
+  return getDailyQuestsForUser(dateStr, userId, mood, localQuests).map((q) => q.id);
 }

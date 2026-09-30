@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { haptic } from "@/lib/haptics";
+import { playSound, soundForHitKind } from "@/lib/sounds";
 
 export type VerifyHitPayload = {
   title: string;
@@ -9,7 +10,7 @@ export type VerifyHitPayload = {
   xp: number;
   xpLabel: string;
   extra?: string;
-  kind?: "xp" | "submit" | "level";
+  kind?: "xp" | "submit" | "level" | "vouch";
 };
 
 export default function VerifyHit({
@@ -22,6 +23,7 @@ export default function VerifyHit({
   useEffect(() => {
     if (!hit) return;
     haptic(hit.kind === "level" ? "heavy" : "success");
+    playSound(soundForHitKind(hit.kind));
     const t = window.setTimeout(onDone, hit.kind === "level" ? 3800 : 3000);
     return () => window.clearTimeout(t);
   }, [hit, onDone]);

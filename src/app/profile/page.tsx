@@ -85,8 +85,8 @@ export default function ProfilePage() {
         </h2>
       </div>
 
-      <div className="p-6 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between">
-        <div>
+      <div className="p-6 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between gap-4">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold text-ink-primary">
             {profile.name}
           </h3>
@@ -94,11 +94,19 @@ export default function ProfilePage() {
             {profile.title} · {profile.guildName || "No Guild Joined"}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-semibold text-ink-primary">
-            {profile.totalVerifiedDeeds}
-          </p>
-          <p className="text-xs text-ink-muted">Total verified deeds</p>
+        <div className="flex items-start gap-5 shrink-0 text-right">
+          <div>
+            <p className="text-2xl font-semibold text-ink-primary">
+              {profile.totalVerifiedDeeds}
+            </p>
+            <p className="text-xs text-ink-muted">Verified deeds</p>
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-ink-primary">
+              {profile.totalVouchesGiven ?? 0}
+            </p>
+            <p className="text-xs text-ink-muted">Vouches given</p>
+          </div>
         </div>
       </div>
 

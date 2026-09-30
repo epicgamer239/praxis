@@ -9,25 +9,41 @@ import GuildGate from "@/components/guild/GuildGate";
 import StreakCalendar from "@/components/streak/StreakCalendar";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { useAuth } from "@/context/AuthContext";
-import { getDailyQuestsForGuild } from "@/lib/questBank";
+import { useToast } from "@/context/ToastContext";
 import {
+  WEEKLY_REROLLS,
+  resolveDailyBoard,
+} from "@/lib/questBank";
+import {
+  ensureRerollBudget,
+  rerollDailyQuestSlot,
+  subscribeToGuildSubmissions,
   subscribeToUserSubmissionsToday,
 } from "@/lib/firestoreService";
-import { PeerSubmission, Quest } from "@/types";
-import { formatLocalDate, VOUCH_BONUS_XP } from "@/lib/progression";
+import { PeerSubmission, Quest, GuildActivityItem } from "@/types";
+import {
+  formatLocalDate,
+  getWeekStart,
+  VOUCH_BONUS_XP,
+} from "@/lib/progression";
 import { useFieldConditions } from "@/hooks/useFieldConditions";
 import { weatherHint } from "@/lib/fieldConditions";
 import { GeneratedBankQuest } from "@/lib/generatedQuests";
 import { persistGeneratedQuests } from "@/lib/questRuntime";
+import ActivityFeed from "@/components/guild/ActivityFeed";
+import { buildGuildActivity } from "@/lib/guildActivity";
+import { playSound } from "@/lib/sounds";
 
 export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
-  const { field, civic } = useFieldConditions();
+  const { toast } = useToast();
+  const { field } = useFieldConditions();
   const [userSubmissions, setUserSubmissions] = useState<PeerSubmission[]>([]);
   const [localQuests, setLocalQuests] = useState<GeneratedBankQuest[]>([]);
-  const [questSource, setQuestSource] = useState<string | null>(null);
+  const [activity, setActivity] = useState<GuildActivityItem[]>([]);
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
+  const [rerollingSlot, setRerollingSlot] = useState<number | null>(null);
   const seenVerified = useRef<Set<string> | null>(null);
   const lastLevel = useRef<number | null>(null);
 
@@ -50,7 +66,6 @@ export default function DashboardPage() {
         if (cancelled) return;
         const quests = data.quests || [];
         setLocalQuests(quests);
-        setQuestSource(data.source || null);
         if (quests.length > 0) {
           persistGeneratedQuests(todayStr, field.place!, quests);
         }
@@ -63,14 +78,41 @@ export default function DashboardPage() {
     };
   }, [field?.place, field?.mood, field?.weatherLabel, field?.airLabel, todayStr]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    void ensureRerollBudget(profile.id, profile).catch(() => {
+      /* best-effort */
+    });
+  }, [profile?.id, profile?.rerollWeekStart, profile?.rerollsRemaining]);
+
+  useEffect(() => {
+    if (!profile?.guildId) {
+      setActivity([]);
+      return;
+    }
+    return subscribeToGuildSubmissions(profile.guildId, (subs) => {
+      setActivity(buildGuildActivity(subs, 8));
+    });
+  }, [profile?.guildId]);
+
   const baseQuests = useMemo(() => {
-    return getDailyQuestsForGuild(
+    if (!profile?.id) return [];
+    return resolveDailyBoard(
       todayStr,
-      profile?.guildId || "DEFAULT",
+      profile.id,
       weatherMood,
       localQuests,
+      profile.dailyQuestDate,
+      profile.dailyQuestIds,
     );
-  }, [todayStr, profile?.guildId, weatherMood, localQuests]);
+  }, [
+    todayStr,
+    profile?.id,
+    profile?.dailyQuestDate,
+    profile?.dailyQuestIds,
+    weatherMood,
+    localQuests,
+  ]);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -150,6 +192,38 @@ export default function DashboardPage() {
     });
   }, [baseQuests, userSubmissions]);
 
+  const weekStart = formatLocalDate(getWeekStart());
+  const rerollsLeft =
+    profile?.rerollWeekStart === weekStart
+      ? (profile.rerollsRemaining ?? WEEKLY_REROLLS)
+      : WEEKLY_REROLLS;
+
+  const lockedQuestIds = useMemo(
+    () => userSubmissions.map((s) => s.questId),
+    [userSubmissions],
+  );
+
+  const handleReroll = async (slotIndex: number) => {
+    if (!profile?.id || rerollingSlot !== null) return;
+    setRerollingSlot(slotIndex);
+    try {
+      const result = await rerollDailyQuestSlot({
+        userId: profile.id,
+        slotIndex,
+        mood: weatherMood,
+        localQuests,
+        lockedQuestIds,
+      });
+      playSound("soft");
+      toast(`Quest swapped · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Reroll failed.";
+      toast(message);
+    } finally {
+      setRerollingSlot(null);
+    }
+  };
+
   useEffect(() => {
     if (!profile) return;
     if (lastLevel.current === null) {
@@ -204,56 +278,45 @@ export default function DashboardPage() {
         </h2>
         <p className="text-xs text-ink-muted mt-0.5">
           Resets in {timeUntilMidnight || "…"}
+          {field && field.mood !== "unknown"
+            ? ` · ${weatherHint(field.mood, field.airBand)}`
+            : ""}
+          {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
         </p>
       </div>
 
-      {field && field.mood !== "unknown" && (
-        <div className="p-4 rounded-2xl border border-border-subtle bg-canvas-card space-y-2">
-          <p className="text-xs font-medium text-ink-secondary uppercase tracking-wide">
-            Field conditions
-          </p>
-          {field.place && (
-            <p className="text-sm font-medium text-ink-primary">{field.place}</p>
-          )}
-          <p className="text-xs text-ink-secondary leading-relaxed">
-            {field.weatherLabel}
-            {" · "}
-            {field.airLabel}
-            {field.daylightHint ? ` · ${field.daylightHint}` : ""}
-          </p>
-          <p className="text-xs text-attribute-energy">
-            {weatherHint(field.mood, field.airBand)}
-          </p>
-          {localQuests.length > 0 && (
-            <p className="text-xs text-ink-muted">
-              Local quest bank · Gemini
-              {questSource === "cache" ? " (cached)" : ""}
-            </p>
-          )}
-          {civic && (
-            <p className="text-xs text-ink-muted pt-1 border-t border-border-subtle">
-              Your area · {civic.name}
-              {civic.district ? ` · Dist. ${civic.district}` : ""}
-              {civic.party ? ` (${civic.party})` : ""}
-            </p>
-          )}
-        </div>
-      )}
-
-      {field && field.mood === "unknown" && (
-        <p className="text-xs text-ink-muted -mt-2">
-          Allow location for live weather, air quality, and local civic context.
-        </p>
-      )}
-
       <div className="space-y-3">
-        {questsWithStatus.map((quest) => (
-          <QuestCard key={quest.id} quest={quest} />
+        {questsWithStatus.map((quest, idx) => (
+          <QuestCard
+            key={quest.id}
+            quest={quest}
+            canReroll={
+              rerollsLeft > 0 &&
+              (!quest.status || quest.status === "pending")
+            }
+            rerolling={rerollingSlot === idx}
+            onReroll={() => handleReroll(idx)}
+          />
         ))}
       </div>
 
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-ink-secondary">
+            Guild activity
+          </h3>
+          <Link
+            href="/verify"
+            className="text-[11px] text-ink-muted hover:text-ink-primary transition-colors"
+          >
+            Verify →
+          </Link>
+        </div>
+        <ActivityFeed items={activity} />
+      </div>
+
       <Link
-        href="/guild"
+        href="/verify"
         className="block p-4 rounded-2xl border border-border-subtle bg-canvas-card"
       >
         <p className="text-sm font-medium text-ink-primary">

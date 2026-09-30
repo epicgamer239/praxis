@@ -6,9 +6,17 @@ import { ATTRIBUTE_BG, ATTRIBUTE_TEXT, cn } from "@/lib/utils";
 
 interface QuestCardProps {
   quest: Quest;
+  canReroll?: boolean;
+  rerolling?: boolean;
+  onReroll?: () => void;
 }
 
-export default function QuestCard({ quest }: QuestCardProps) {
+export default function QuestCard({
+  quest,
+  canReroll = false,
+  rerolling = false,
+  onReroll,
+}: QuestCardProps) {
   const pending = !quest.status || quest.status === "pending";
   const awaiting = quest.status === "awaiting_vouches";
   const verified = quest.status === "verified";
@@ -87,12 +95,24 @@ export default function QuestCard({ quest }: QuestCardProps) {
             <p className="text-xs text-ink-muted leading-snug min-w-0 flex-1">
               Proof: {quest.requiredProof}
             </p>
-            <Link
-              href={`/submit?questId=${quest.id}`}
-              className="shrink-0 inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-ink-primary bg-moss hover:bg-moss-hover transition-colors"
-            >
-              Submit proof
-            </Link>
+            <div className="shrink-0 flex flex-col items-end gap-1.5">
+              <Link
+                href={`/submit?questId=${quest.id}`}
+                className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-ink-primary bg-moss hover:bg-moss-hover transition-colors"
+              >
+                Submit proof
+              </Link>
+              {canReroll && onReroll && (
+                <button
+                  type="button"
+                  disabled={rerolling}
+                  onClick={onReroll}
+                  className="text-[11px] text-ink-muted hover:text-ink-primary disabled:opacity-50 transition-colors"
+                >
+                  {rerolling ? "Rerolling…" : "Reroll"}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

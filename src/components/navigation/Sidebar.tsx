@@ -1,24 +1,37 @@
 // src/components/navigation/Sidebar.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { subscribeToGuildSubmissions } from "@/lib/firestoreService";
+import { countPendingVouchesForYou } from "@/lib/guildActivity";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, user, signOut } = useAuth();
+  const [verifyCount, setVerifyCount] = useState(0);
+
+  useEffect(() => {
+    if (!profile?.guildId || !profile?.id) {
+      setVerifyCount(0);
+      return;
+    }
+    return subscribeToGuildSubmissions(profile.guildId, (subs) => {
+      setVerifyCount(countPendingVouchesForYou(subs, profile.id));
+    });
+  }, [profile?.guildId, profile?.id]);
 
   if (pathname === "/login") return null;
 
   const navItems = [
-    { label: "Dashboard", href: "/" },
-    { label: "Submit Proof", href: "/submit" },
-    { label: "Guild Territory", href: "/guild" },
-    { label: "Character Dossier", href: "/profile" },
+    { label: "Home", href: "/" },
+    { label: "Verify", href: "/verify" },
+    { label: "Guild", href: "/guild" },
+    { label: "You", href: "/profile" },
   ];
 
   return (
@@ -39,6 +52,7 @@ export default function Sidebar() {
               item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
+            const showBadge = item.href === "/verify" && verifyCount > 0;
             return (
               <Link
                 key={item.href}
@@ -51,6 +65,11 @@ export default function Sidebar() {
                 )}
               >
                 <span>{item.label}</span>
+                {showBadge && (
+                  <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-attribute-neighborhood text-[10px] font-bold text-ink-primary flex items-center justify-center">
+                    {verifyCount > 9 ? "9+" : verifyCount}
+                  </span>
+                )}
               </Link>
             );
           })}

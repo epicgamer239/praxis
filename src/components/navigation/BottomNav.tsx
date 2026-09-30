@@ -4,11 +4,14 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Camera, Users, User } from "lucide-react";
+import { House, BadgeCheck, Users, User } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { subscribeToGuildSubmissions } from "@/lib/firestoreService";
+import { countPendingVouchesForYou } from "@/lib/guildActivity";
 
 const navItems = [
   { label: "Home", href: "/", icon: House },
-  { label: "Submit", href: "/submit", icon: Camera },
+  { label: "Verify", href: "/verify", icon: BadgeCheck },
   { label: "Guild", href: "/guild", icon: Users },
   { label: "You", href: "/profile", icon: User },
 ];
@@ -29,11 +32,23 @@ function pinToLargeViewport(nav: HTMLElement) {
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { profile } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [verifyCount, setVerifyCount] = useState(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.guildId || !profile?.id) {
+      setVerifyCount(0);
+      return;
+    }
+    return subscribeToGuildSubmissions(profile.guildId, (subs) => {
+      setVerifyCount(countPendingVouchesForYou(subs, profile.id));
+    });
+  }, [profile?.guildId, profile?.id]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -63,6 +78,7 @@ export default function BottomNav() {
               ? pathname === "/"
               : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const showBadge = item.href === "/verify" && verifyCount > 0;
 
           return (
             <Link
@@ -74,7 +90,14 @@ export default function BottomNav() {
                   : "praxis-bottom-nav__link"
               }
             >
-              <Icon size={24} strokeWidth={isActive ? 2.35 : 1.75} />
+              <span className="praxis-bottom-nav__icon">
+                <Icon size={24} strokeWidth={isActive ? 2.35 : 1.75} />
+                {showBadge && (
+                  <span className="praxis-bottom-nav__badge">
+                    {verifyCount > 9 ? "9+" : verifyCount}
+                  </span>
+                )}
+              </span>
               {item.label}
             </Link>
           );
