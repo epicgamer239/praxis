@@ -10,49 +10,73 @@ import { unlockAudio } from "@/lib/sounds";
 import SplashScreen from "@/components/fx/SplashScreen";
 
 const OPEN_ROUTES = new Set(["/welcome", "/login", "/signup"]);
-const SPLASH_MIN_MS = 1100;
+const ENTERED_KEY = "praxis_session_entered";
+
+function readEntered(): boolean {
+  try {
+    return sessionStorage.getItem(ENTERED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading } = useAuth();
   const isOpen = OPEN_ROUTES.has(pathname);
-  const [bootHold, setBootHold] = useState(true);
+  const [entered, setEntered] = useState(false);
+  const [ready, setReady] = useState(false);
 
   usePresenceHeartbeat(user?.uid);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setBootHold(false), SPLASH_MIN_MS);
-    return () => window.clearTimeout(t);
+    setEntered(readEntered());
+    setReady(true);
   }, []);
 
   useEffect(() => {
+    if (!entered) return;
     const onGesture = () => {
       void unlockAudio();
     };
     window.addEventListener("pointerdown", onGesture);
     window.addEventListener("touchstart", onGesture, { passive: true });
-    window.addEventListener("keydown", onGesture);
     return () => {
       window.removeEventListener("pointerdown", onGesture);
       window.removeEventListener("touchstart", onGesture);
-      window.removeEventListener("keydown", onGesture);
     };
-  }, []);
+  }, [entered]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !entered) return;
     if (!user && !isOpen) {
       router.replace("/welcome");
     }
     if (user && isOpen) {
       router.replace("/");
     }
-  }, [loading, user, isOpen, router]);
+  }, [loading, user, isOpen, router, entered]);
 
-  const showSplash = bootHold || loading || (!user && !isOpen);
+  const handleEnter = () => {
+    try {
+      sessionStorage.setItem(ENTERED_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setEntered(true);
+  };
 
-  if (showSplash) {
+  // Avoid flash before we know session state
+  if (!ready) {
+    return <SplashScreen />;
+  }
+
+  if (!entered) {
+    return <SplashScreen needsTap onEnter={handleEnter} />;
+  }
+
+  if (loading || (!user && !isOpen)) {
     return <SplashScreen />;
   }
 

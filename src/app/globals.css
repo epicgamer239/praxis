@@ -228,146 +228,351 @@ body::-webkit-scrollbar,
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(90% 60% at 50% 42%, #24352e 0%, transparent 62%),
+    radial-gradient(70% 55% at 50% 40%, #1c2e26 0%, transparent 70%),
     var(--color-canvas-base);
   overflow: hidden;
+}
+
+.app-splash.is-entering {
+  background:
+    radial-gradient(85% 70% at 50% 42%, #2f4f40 0%, #1a2822 45%, transparent 72%),
+    var(--color-canvas-base);
+  transition: background 0.8s ease;
 }
 
 .app-splash__stage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.15rem;
+  gap: 1.35rem;
 }
 
-.app-splash__icon-wrap {
+.app-splash__leaf-stage {
   position: relative;
-  animation: splash-icon-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  width: 220px;
+  height: 220px;
+  display: grid;
+  place-items: center;
 }
 
-.app-splash__icon-wrap::after {
-  content: "";
+.app-splash__aura {
   position: absolute;
-  inset: -18%;
-  border-radius: 28%;
+  inset: 8%;
+  border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--color-moss) 35%, transparent) 0%,
-    transparent 70%
+    color-mix(in srgb, var(--color-moss) 45%, transparent) 0%,
+    transparent 68%
   );
-  animation: splash-glow 1.1s ease-out both;
+  filter: blur(6px);
+  animation: splash-aura-breathe 3.6s ease-in-out infinite;
   pointer-events: none;
-  z-index: -1;
 }
+
+.app-splash__leaf-stage.is-entering .app-splash__aura {
+  animation: splash-aura-burst 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-splash__rays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__rays {
+  animation: splash-rays-in 1.4s ease-out both;
+}
+
+.app-splash__ray {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 42%;
+  margin-left: -1px;
+  transform-origin: 50% 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, #a8d5c0 70%, transparent),
+    transparent
+  );
+  border-radius: 999px;
+}
+
+.app-splash__ray--0 { transform: rotate(0deg) translateY(-8%); }
+.app-splash__ray--1 { transform: rotate(45deg) translateY(-8%); }
+.app-splash__ray--2 { transform: rotate(90deg) translateY(-8%); }
+.app-splash__ray--3 { transform: rotate(135deg) translateY(-8%); }
+.app-splash__ray--4 { transform: rotate(180deg) translateY(-8%); }
+.app-splash__ray--5 { transform: rotate(225deg) translateY(-8%); }
+.app-splash__ray--6 { transform: rotate(270deg) translateY(-8%); }
+.app-splash__ray--7 { transform: rotate(315deg) translateY(-8%); }
+
+.app-splash__sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.app-splash__spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: #f0efea;
+  opacity: 0;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-moss) 80%, white);
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__spark {
+  animation: splash-spark-fly 1.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-splash__spark--0 { --dx: 72px; --dy: -88px; animation-delay: 0.05s; }
+.app-splash__spark--1 { --dx: -64px; --dy: -76px; animation-delay: 0.08s; }
+.app-splash__spark--2 { --dx: 96px; --dy: -24px; animation-delay: 0.12s; }
+.app-splash__spark--3 { --dx: -90px; --dy: -12px; animation-delay: 0.1s; }
+.app-splash__spark--4 { --dx: 70px; --dy: 58px; animation-delay: 0.16s; }
+.app-splash__spark--5 { --dx: -78px; --dy: 64px; animation-delay: 0.14s; }
+.app-splash__spark--6 { --dx: 28px; --dy: 92px; animation-delay: 0.18s; }
+.app-splash__spark--7 { --dx: -34px; --dy: 86px; animation-delay: 0.2s; }
+.app-splash__spark--8 { --dx: 110px; --dy: 18px; animation-delay: 0.22s; }
+.app-splash__spark--9 { --dx: -108px; --dy: 22px; animation-delay: 0.24s; }
+.app-splash__spark--10 { --dx: 48px; --dy: -102px; animation-delay: 0.11s; }
+.app-splash__spark--11 { --dx: -42px; --dy: -98px; animation-delay: 0.13s; }
 
 .app-splash__leaf {
   display: block;
-  border-radius: 22%;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  width: 168px;
+  height: 168px;
+  overflow: visible;
+  animation: splash-leaf-float 4.2s ease-in-out infinite;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.4));
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__leaf {
+  animation: splash-leaf-unfurl 1.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .app-splash__leaf-body {
-  transform-origin: 256px 256px;
-  animation: splash-leaf-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-box: fill-box;
+  transform-origin: 70% 15%;
+  animation: splash-leaf-idle-breathe 3.8s ease-in-out infinite;
 }
 
-.app-splash__leaf-vein {
+.app-splash__leaf-stage.is-entering .app-splash__leaf-body {
+  animation: splash-leaf-body-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-splash__leaf-sheen {
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__leaf-sheen {
+  animation: splash-sheen-sweep 1.3s ease-out 0.15s both;
+}
+
+.app-splash__leaf-vein,
+.app-splash__leaf-vein-glow {
   stroke-dasharray: 420;
   stroke-dashoffset: 420;
-  animation: splash-vein-draw 0.85s ease-out 0.18s both;
+}
+
+.app-splash__leaf-stage:not(.is-entering) .app-splash__leaf-vein,
+.app-splash__leaf-stage:not(.is-entering) .app-splash__leaf-vein-glow {
+  stroke-dashoffset: 0;
+  opacity: 0.85;
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__leaf-vein {
+  animation: splash-vein-draw 1.05s ease-out 0.2s both;
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__leaf-vein-glow {
+  animation: splash-vein-draw 1.05s ease-out 0.2s both;
+  filter: drop-shadow(0 0 6px #a8d5c0);
 }
 
 .app-splash__leaf-core {
-  transform-origin: 256px 256px;
-  animation: splash-core-pop 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) 0.45s both;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.9;
+}
+
+.app-splash__leaf-stage.is-entering .app-splash__leaf-core {
+  animation: splash-core-bloom 0.7s cubic-bezier(0.34, 1.5, 0.64, 1) 0.55s both;
 }
 
 .app-splash__mark {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 650;
   letter-spacing: -0.03em;
   color: var(--color-ink-primary);
-  animation: splash-mark-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
+  opacity: 0.92;
 }
 
-@keyframes splash-icon-in {
-  from {
+.app-splash.is-tappable:not(.is-entering) .app-splash__mark {
+  animation: splash-mark-idle 3.2s ease-in-out infinite;
+}
+
+.app-splash.is-entering .app-splash__mark {
+  animation: splash-mark-majestic 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+
+.app-splash.is-tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.app-splash__hint {
+  margin-top: 0.1rem;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  animation: splash-hint-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes splash-hint-pulse {
+  0%,
+  100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes splash-aura-breathe {
+  0%,
+  100% { transform: scale(0.92); opacity: 0.45; }
+  50% { transform: scale(1.08); opacity: 0.8; }
+}
+
+@keyframes splash-aura-burst {
+  0% { transform: scale(0.7); opacity: 0.3; }
+  40% { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1.55); opacity: 0.25; }
+}
+
+@keyframes splash-rays-in {
+  from { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  40% { opacity: 0.85; }
+  to { opacity: 0.2; transform: scale(1.15) rotate(0deg); }
+}
+
+@keyframes splash-spark-fly {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  25% { opacity: 1; }
+  100% {
     opacity: 0;
-    transform: scale(0.72) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translate(var(--dx), var(--dy)) scale(0.15);
   }
 }
 
-@keyframes splash-glow {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
+@keyframes splash-leaf-float {
+  0%,
+  100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+
+@keyframes splash-leaf-unfurl {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.2) rotate(-28deg);
+    filter: drop-shadow(0 0 0 transparent);
   }
   45% {
     opacity: 1;
+    transform: scale(1.12) rotate(6deg);
+    filter: drop-shadow(0 0 28px color-mix(in srgb, var(--color-moss) 70%, transparent));
   }
-  to {
-    opacity: 0.55;
-    transform: scale(1);
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.4));
   }
 }
 
-@keyframes splash-leaf-grow {
-  from {
-    opacity: 0.35;
-    transform: scale(0.82);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+@keyframes splash-leaf-idle-breathe {
+  0%,
+  100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes splash-leaf-body-reveal {
+  0% { transform: scale(0.15) rotate(-40deg); opacity: 0.3; }
+  60% { transform: scale(1.08) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes splash-sheen-sweep {
+  0% { opacity: 0; }
+  35% { opacity: 0.7; }
+  100% { opacity: 0.25; }
 }
 
 @keyframes splash-vein-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
+  from { stroke-dashoffset: 420; }
+  to { stroke-dashoffset: 0; }
 }
 
-@keyframes splash-core-pop {
+@keyframes splash-core-bloom {
+  0% { opacity: 0; transform: scale(0.1); }
+  60% { opacity: 1; transform: scale(1.45); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes splash-mark-idle {
+  0%,
+  100% { opacity: 0.75; letter-spacing: -0.02em; }
+  50% { opacity: 1; letter-spacing: 0.02em; }
+}
+
+@keyframes splash-mark-majestic {
   from {
     opacity: 0;
-    transform: scale(0.2);
+    transform: translateY(16px) scale(0.92);
+    letter-spacing: 0.28em;
+    filter: blur(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes splash-mark-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-    letter-spacing: 0.12em;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     letter-spacing: -0.03em;
+    filter: blur(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-splash__icon-wrap,
-  .app-splash__icon-wrap::after,
+  .app-splash__aura,
+  .app-splash__rays,
+  .app-splash__spark,
+  .app-splash__leaf,
   .app-splash__leaf-body,
+  .app-splash__leaf-sheen,
   .app-splash__leaf-vein,
+  .app-splash__leaf-vein-glow,
   .app-splash__leaf-core,
-  .app-splash__mark {
-    animation: none;
+  .app-splash__mark,
+  .app-splash__hint {
+    animation: none !important;
   }
 
-  .app-splash__leaf-vein {
+  .app-splash__leaf-vein,
+  .app-splash__leaf-vein-glow {
     stroke-dashoffset: 0;
+  }
+
+  .app-splash__hint {
+    opacity: 0.85;
+  }
+
+  .app-splash__rays {
+    opacity: 0;
   }
 }
 
