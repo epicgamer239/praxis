@@ -32,7 +32,7 @@ import { GeneratedBankQuest } from "@/lib/generatedQuests";
 import { persistGeneratedQuests } from "@/lib/questRuntime";
 import ActivityFeed from "@/components/guild/ActivityFeed";
 import { buildGuildActivity } from "@/lib/guildActivity";
-import { playSound } from "@/lib/sounds";
+import { playSound, armAudioFromGesture } from "@/lib/sounds";
 
 export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const [rerollingSlot, setRerollingSlot] = useState<number | null>(null);
+  const [rerollMode, setRerollMode] = useState(false);
   const seenVerified = useRef<Set<string> | null>(null);
   const lastLevel = useRef<number | null>(null);
 
@@ -205,6 +206,7 @@ export default function DashboardPage() {
 
   const handleReroll = async (slotIndex: number) => {
     if (!profile?.id || rerollingSlot !== null) return;
+    armAudioFromGesture();
     setRerollingSlot(slotIndex);
     try {
       const result = await rerollDailyQuestSlot({
@@ -216,6 +218,7 @@ export default function DashboardPage() {
       });
       playSound("soft");
       toast(`Quest swapped · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`);
+      if (result.remaining <= 0) setRerollMode(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Reroll failed.";
       toast(message);
@@ -272,24 +275,46 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
-          Today ({verifiedCount}/3)
-        </h2>
-        <p className="text-xs text-ink-muted mt-0.5">
-          Resets in {timeUntilMidnight || "…"}
-          {field && field.mood !== "unknown"
-            ? ` · ${weatherHint(field.mood, field.airBand)}`
-            : ""}
-          {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
-        </p>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
+            Today ({verifiedCount}/3)
+          </h2>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Resets in {timeUntilMidnight || "…"}
+            {field && field.mood !== "unknown"
+              ? ` · ${weatherHint(field.mood, field.airBand)}`
+              : ""}
+            {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
+          </p>
+        </div>
+        {rerollsLeft > 0 && (
+          <button
+            type="button"
+            onClick={() => setRerollMode((v) => !v)}
+            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+              rerollMode
+                ? "bg-moss text-ink-primary"
+                : "bg-canvas-subtle text-ink-secondary hover:text-ink-primary"
+            }`}
+          >
+            {rerollMode ? "Done" : "Reroll"}
+          </button>
+        )}
       </div>
+
+      {rerollMode && (
+        <p className="text-xs text-attribute-neighborhood -mt-2">
+          Reroll mode — tap a quest to swap it.
+        </p>
+      )}
 
       <div className="space-y-3">
         {questsWithStatus.map((quest, idx) => (
           <QuestCard
             key={quest.id}
             quest={quest}
+            rerollMode={rerollMode}
             canReroll={
               rerollsLeft > 0 &&
               (!quest.status || quest.status === "pending")

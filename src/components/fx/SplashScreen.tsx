@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { playSound } from "@/lib/sounds";
+import { markSplashForBoot, unlockAudio } from "@/lib/sounds";
 
 function LeafMark() {
   return (
@@ -48,14 +48,22 @@ function LeafMark() {
   );
 }
 
-/** Branded boot splash — leaf + Praxis + soft chime. */
+/**
+ * Branded boot splash.
+ * Autoplay audio is blocked until a tap — first tap within ~4s plays the boot chime.
+ */
 export default function SplashScreen() {
   useEffect(() => {
-    playSound("boot");
+    markSplashForBoot();
   }, []);
 
   return (
-    <div className="app-screen app-splash">
+    <div
+      className="app-screen app-splash"
+      onPointerDown={() => {
+        void unlockAudio();
+      }}
+    >
       <div className="app-splash__stage">
         <div className="app-splash__icon-wrap">
           <LeafMark />

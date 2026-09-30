@@ -11,6 +11,7 @@ import { submitProofOfWork } from "@/lib/firestoreService";
 import { getQuestById } from "@/lib/questBank";
 import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
+import { armAudioFromGesture } from "@/lib/sounds";
 
 function SubmitProofContent() {
   const router = useRouter();
@@ -67,6 +68,7 @@ function SubmitProofContent() {
       return;
     }
 
+    armAudioFromGesture();
     setIsSubmitting(true);
     try {
       const photoHash = await differenceHash(preview);

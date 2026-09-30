@@ -11,6 +11,7 @@ import { PeerSubmission } from "@/types";
 import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
+import { armAudioFromGesture } from "@/lib/sounds";
 
 export default function VerifyPage() {
   const { profile } = useAuth();
@@ -38,6 +39,7 @@ export default function VerifyPage() {
   }
 
   const handleVouch = async (sub: PeerSubmission) => {
+    armAudioFromGesture();
     try {
       const result = await vouchForSubmission(sub.id, profile.id, profile.name);
       if (result.verified) {

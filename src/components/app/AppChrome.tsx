@@ -27,12 +27,16 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unlock = () => unlockAudio();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    const onGesture = () => {
+      void unlockAudio();
+    };
+    window.addEventListener("pointerdown", onGesture);
+    window.addEventListener("touchstart", onGesture, { passive: true });
+    window.addEventListener("keydown", onGesture);
     return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("touchstart", onGesture);
+      window.removeEventListener("keydown", onGesture);
     };
   }, []);
 
