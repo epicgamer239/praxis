@@ -184,7 +184,7 @@ export default function GuildPage() {
           className="text-xs text-ink-muted hover:text-ink-primary transition-colors flex items-center space-x-1.5 self-start"
         >
           <span>Invite Code:</span>
-          <span className="font-semibold text-attribute-civic underline underline-offset-2">
+          <span className="font-semibold text-attribute-neighborhood underline underline-offset-2">
             {displayCode}
           </span>
           <span className="text-[10px] text-ink-muted">(Copy)</span>
@@ -212,7 +212,7 @@ export default function GuildPage() {
                   key={sub.id}
                   className={`p-5 rounded-2xl border bg-canvas-card space-y-4 ${
                     isVerified
-                      ? "border-attribute-vitality/50"
+                      ? "border-attribute-energy/50"
                       : "border-border-subtle"
                   }`}
                 >
@@ -265,8 +265,8 @@ export default function GuildPage() {
                     <div
                       className={`h-full rounded-full transition-[width,background-color] duration-500 ${
                         isVerified
-                          ? "bg-attribute-vitality"
-                          : "bg-attribute-civic"
+                          ? "bg-attribute-energy"
+                          : "bg-attribute-neighborhood"
                       }`}
                       style={{
                         width: `${Math.min(

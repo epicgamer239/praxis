@@ -31,7 +31,7 @@ export default function StreakCalendar({
         <h3 className="text-sm font-medium text-ink-secondary">
           Consistency Streak
         </h3>
-        <span className="text-xs text-attribute-vitality font-medium">
+        <span className="text-xs text-attribute-energy font-medium">
           {streakDays}-day active
         </span>
       </div>
@@ -54,7 +54,7 @@ export default function StreakCalendar({
             <p
               className={cn(
                 "text-xs font-medium",
-                day.isActive ? "text-attribute-vitality" : "text-ink-muted",
+                day.isActive ? "text-attribute-energy" : "text-ink-muted",
               )}
             >
               {day.isFuture ? "·" : day.isActive ? "✓" : "○"}

@@ -1,6 +1,7 @@
 // src/types/index.ts
 
-export type AttributeType = 'wisdom' | 'social' | 'civic' | 'vitality';
+/** Compass attributes: N Neighborhood, E Energy, S Social, W Wisdom */
+export type AttributeType = 'neighborhood' | 'energy' | 'social' | 'wisdom';
 
 export interface AttributeStat {
   level: number;

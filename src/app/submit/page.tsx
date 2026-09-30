@@ -8,32 +8,36 @@ import { useToast } from "@/context/ToastContext";
 import { differenceHash, fileToBase64Compressed } from "@/lib/imageUtils";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { submitProofOfWork } from "@/lib/firestoreService";
-import { getDailyQuestsForGuild } from "@/lib/questBank";
+import { getDailyQuestsForGuild, getQuestById } from "@/lib/questBank";
 import { formatLocalDate } from "@/lib/progression";
 import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
+import { useFieldConditions } from "@/hooks/useFieldConditions";
 
 function SubmitProofContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { field } = useFieldConditions();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const questIdParam = searchParams.get("questId");
   const todayStr = useMemo(() => formatLocalDate(), []);
+  const weatherMood = field?.mood || "unknown";
 
   const activeQuest = useMemo(() => {
+    if (questIdParam) {
+      const byId = getQuestById(questIdParam);
+      if (byId) return byId;
+    }
     const quests = getDailyQuestsForGuild(
       todayStr,
       profile?.guildId || "DEFAULT",
+      weatherMood,
     );
-    if (questIdParam) {
-      const found = quests.find((q) => q.id === questIdParam);
-      if (found) return found;
-    }
     return quests[0];
-  }, [todayStr, profile?.guildId, questIdParam]);
+  }, [todayStr, profile?.guildId, questIdParam, weatherMood]);
 
   const [preview, setPreview] = useState<string | null>(null);
   const [fieldNote, setFieldNote] = useState("");

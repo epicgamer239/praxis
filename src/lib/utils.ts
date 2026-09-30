@@ -7,8 +7,23 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const ATTRIBUTE_TEXT: Record<AttributeType, string> = {
-  wisdom: 'text-attribute-wisdom',
+  neighborhood: 'text-attribute-neighborhood',
+  energy: 'text-attribute-energy',
   social: 'text-attribute-social',
-  civic: 'text-attribute-civic',
-  vitality: 'text-attribute-vitality',
+  wisdom: 'text-attribute-wisdom',
+};
+
+export const ATTRIBUTE_BG: Record<AttributeType, string> = {
+  neighborhood: 'bg-attribute-neighborhood',
+  energy: 'bg-attribute-energy',
+  social: 'bg-attribute-social',
+  wisdom: 'bg-attribute-wisdom',
+};
+
+/** Compass letter for each tip. */
+export const ATTRIBUTE_COMPASS: Record<AttributeType, 'N' | 'E' | 'S' | 'W'> = {
+  neighborhood: 'N',
+  energy: 'E',
+  social: 'S',
+  wisdom: 'W',
 };

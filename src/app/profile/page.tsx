@@ -48,29 +48,29 @@ export default function ProfilePage() {
 
   const attributes = [
     {
+      key: "neighborhood",
+      name: "N · Neighborhood",
+      stat: profile.attributes.neighborhood,
+      color: "bg-attribute-neighborhood",
+      textColor: "text-attribute-neighborhood",
+    },
+    {
+      key: "energy",
+      name: "E · Energy",
+      stat: profile.attributes.energy,
+      color: "bg-attribute-energy",
+      textColor: "text-attribute-energy",
+    },
+    {
       key: "social",
-      name: "Charisma (Social)",
+      name: "S · Social",
       stat: profile.attributes.social,
       color: "bg-attribute-social",
       textColor: "text-attribute-social",
     },
     {
-      key: "civic",
-      name: "Civic Reputation",
-      stat: profile.attributes.civic,
-      color: "bg-attribute-civic",
-      textColor: "text-attribute-civic",
-    },
-    {
-      key: "vitality",
-      name: "Vitality (Movement)",
-      stat: profile.attributes.vitality,
-      color: "bg-attribute-vitality",
-      textColor: "text-attribute-vitality",
-    },
-    {
       key: "wisdom",
-      name: "Wisdom (Mindfulness)",
+      name: "W · Wisdom",
       stat: profile.attributes.wisdom,
       color: "bg-attribute-wisdom",
       textColor: "text-attribute-wisdom",
@@ -105,7 +105,7 @@ export default function ProfilePage() {
       <div className="space-y-6">
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-ink-secondary">
-            Attribute Progression Curves
+            Compass progression
           </h3>
 
           <div className="space-y-3">

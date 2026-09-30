@@ -22,6 +22,32 @@ import {
   VOUCH_BONUS_XP,
 } from '@/lib/progression';
 import { isNearDuplicate } from '@/lib/imageUtils';
+import {
+  normalizeAttributeKey,
+  normalizeAttributes,
+} from '@/lib/attributes';
+
+function normalizeSubmission(raw: Record<string, unknown>): PeerSubmission {
+  const attribute = normalizeAttributeKey(raw.attribute as string);
+  const labelMap: Record<AttributeType, string> = {
+    neighborhood: 'Neighborhood',
+    energy: 'Energy',
+    social: 'Social',
+    wisdom: 'Wisdom',
+  };
+  const legacyLabel = typeof raw.attributeLabel === 'string' ? raw.attributeLabel : '';
+  const needsNewLabel =
+    !legacyLabel ||
+    /civic|vitality/i.test(legacyLabel) ||
+    raw.attribute === 'civic' ||
+    raw.attribute === 'vitality';
+
+  return {
+    ...(raw as unknown as PeerSubmission),
+    attribute,
+    attributeLabel: needsNewLabel ? labelMap[attribute] : legacyLabel,
+  };
+}
 
 // 1. Join Guild by 5-character Code (or full Guild ID)
 export async function joinGuildByCode(userId: string, codeOrId: string): Promise<Guild> {
@@ -195,7 +221,9 @@ export function subscribeToUserSubmissionsToday(
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
-    snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
+    snapshot.forEach((d) =>
+      list.push(normalizeSubmission(d.data() as Record<string, unknown>)),
+    );
     callback(sortByCreatedAtDesc(list));
   });
 }
@@ -207,7 +235,9 @@ export function subscribeToGuildSubmissions(guildId: string, callback: (subs: Pe
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
-    snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
+    snapshot.forEach((d) =>
+      list.push(normalizeSubmission(d.data() as Record<string, unknown>)),
+    );
     callback(sortByCreatedAtDesc(list));
   });
 }
@@ -224,7 +254,7 @@ export async function vouchForSubmission(
   if (!snap.exists()) {
     throw new Error('Submission is gone.');
   }
-  const sub = snap.data() as PeerSubmission;
+  const sub = normalizeSubmission(snap.data() as Record<string, unknown>);
 
   if (sub.userId === voucherId) {
     throw new Error('Self-vouching is prohibited.');
@@ -240,6 +270,8 @@ export async function vouchForSubmission(
   const isNowVerified = newVouchCount >= sub.requiredVouches;
 
   await updateDoc(subRef, {
+    attribute: sub.attribute,
+    attributeLabel: sub.attributeLabel,
     vouchedBy: updatedVouchers,
     vouchedByNames: updatedVoucherNames,
     vouchesReceived: newVouchCount,
@@ -252,7 +284,13 @@ export async function vouchForSubmission(
     const authorSnap = await getDoc(authorRef);
 
     if (authorSnap.exists()) {
-      const author = authorSnap.data() as UserProfile;
+      const authorRaw = authorSnap.data() as UserProfile & {
+        attributes?: Record<string, unknown>;
+      };
+      const author: UserProfile = {
+        ...authorRaw,
+        attributes: normalizeAttributes(authorRaw.attributes),
+      };
       const gained = applyAttributeXp(author.attributes, sub.attribute, sub.xpReward, true);
 
       const today = formatLocalDate();
@@ -269,12 +307,8 @@ export async function vouchForSubmission(
         newStreak = 1;
       }
 
-      const nextAttr = gained.attributes[sub.attribute];
       await updateDoc(authorRef, {
-        [`attributes.${sub.attribute}.currentXp`]: nextAttr.currentXp,
-        [`attributes.${sub.attribute}.level`]: nextAttr.level,
-        [`attributes.${sub.attribute}.maxXp`]: nextAttr.maxXp,
-        [`attributes.${sub.attribute}.verifiedCount`]: increment(1),
+        attributes: gained.attributes,
         totalVerifiedDeeds: increment(1),
         streakDays: newStreak,
         lastActiveDate: today,
@@ -288,12 +322,16 @@ export async function vouchForSubmission(
   const voucherRef = doc(db, 'users', voucherId);
   const voucherSnap = await getDoc(voucherRef);
   if (voucherSnap.exists()) {
-    const voucher = voucherSnap.data() as UserProfile;
+    const voucherRaw = voucherSnap.data() as UserProfile & {
+      attributes?: Record<string, unknown>;
+    };
+    const voucher: UserProfile = {
+      ...voucherRaw,
+      attributes: normalizeAttributes(voucherRaw.attributes),
+    };
     const bonus = applyAttributeXp(voucher.attributes, 'social', VOUCH_BONUS_XP);
     await updateDoc(voucherRef, {
-      'attributes.social.currentXp': bonus.attributes.social.currentXp,
-      'attributes.social.level': bonus.attributes.social.level,
-      'attributes.social.maxXp': bonus.attributes.social.maxXp,
+      attributes: bonus.attributes,
       level: bonus.overallLevel,
       title: bonus.title,
     });
@@ -327,15 +365,18 @@ export function subscribeToGuildMembers(
     const list: LeaderboardEntry[] = [];
 
     snapshot.forEach((d) => {
-      const u = d.data() as UserProfile;
-      const totalXp = totalEarnedXp(u.attributes);
+      const uRaw = d.data() as UserProfile & {
+        attributes?: Record<string, unknown>;
+      };
+      const attributes = normalizeAttributes(uRaw.attributes);
+      const totalXp = totalEarnedXp(attributes);
 
       list.push({
         rank: 0,
-        userId: u.id,
-        name: u.name,
-        isCurrentUser: u.id === currentUserId,
-        deedsCount: u.totalVerifiedDeeds || 0,
+        userId: uRaw.id,
+        name: uRaw.name,
+        isCurrentUser: uRaw.id === currentUserId,
+        deedsCount: uRaw.totalVerifiedDeeds || 0,
         totalXp: totalXp,
       });
     });
@@ -361,7 +402,9 @@ export function subscribeToUserVerifiedDeeds(
 
   return onSnapshot(q, (snapshot) => {
     const list: PeerSubmission[] = [];
-    snapshot.forEach((d) => list.push(d.data() as PeerSubmission));
+    snapshot.forEach((d) =>
+      list.push(normalizeSubmission(d.data() as Record<string, unknown>)),
+    );
     callback(sortByCreatedAtDesc(list));
   });
 }

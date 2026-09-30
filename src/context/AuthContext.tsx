@@ -13,8 +13,13 @@ import {
   signOut as fbSignOut,
 } from "firebase/auth";
 import { auth, db, firebaseConfigReady } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { UserProfile } from "@/types";
+import {
+  attributesNeedRewrite,
+  defaultAttributes,
+  normalizeAttributes,
+} from "@/lib/attributes";
 
 interface AuthContextType {
   user: User | null;
@@ -46,12 +51,7 @@ function buildDefaultProfile(
     lastActiveDate: "",
     activeDates: [],
     totalVerifiedDeeds: 0,
-    attributes: {
-      wisdom: { level: 1, currentXp: 0, maxXp: 100, verifiedCount: 0 },
-      social: { level: 1, currentXp: 0, maxXp: 100, verifiedCount: 0 },
-      civic: { level: 1, currentXp: 0, maxXp: 100, verifiedCount: 0 },
-      vitality: { level: 1, currentXp: 0, maxXp: 100, verifiedCount: 0 },
-    },
+    attributes: defaultAttributes(),
   };
 }
 
@@ -98,8 +98,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           async (snap) => {
             if (cancelled) return;
             if (snap.exists()) {
-              setProfile(snap.data() as UserProfile);
+              const data = snap.data() as UserProfile & {
+                attributes?: Record<string, unknown>;
+              };
+              const attributes = normalizeAttributes(data.attributes);
+              const profile: UserProfile = { ...data, attributes };
+              setProfile(profile);
               setAuthError(null);
+              if (attributesNeedRewrite(data.attributes as Record<string, unknown>)) {
+                void updateDoc(userDocRef, { attributes }).catch(() => {
+                  /* rewrite best-effort */
+                });
+              }
               return;
             }
             try {

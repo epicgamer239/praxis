@@ -15,26 +15,68 @@ import {
 } from "@/lib/firestoreService";
 import { PeerSubmission, Quest } from "@/types";
 import { formatLocalDate, VOUCH_BONUS_XP } from "@/lib/progression";
+import { useFieldConditions } from "@/hooks/useFieldConditions";
+import { weatherHint } from "@/lib/fieldConditions";
+import { GeneratedBankQuest } from "@/lib/generatedQuests";
+import { persistGeneratedQuests } from "@/lib/questRuntime";
 
 export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
+  const { field, civic } = useFieldConditions();
   const [userSubmissions, setUserSubmissions] = useState<PeerSubmission[]>([]);
+  const [localQuests, setLocalQuests] = useState<GeneratedBankQuest[]>([]);
+  const [questSource, setQuestSource] = useState<string | null>(null);
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const seenVerified = useRef<Set<string> | null>(null);
   const lastLevel = useRef<number | null>(null);
 
   const todayStr = useMemo(() => formatLocalDate(), []);
-  const baseQuests = useMemo(() => {
-    return getDailyQuestsForGuild(todayStr, profile?.guildId || "DEFAULT");
-  }, [todayStr, profile?.guildId]);
+  const weatherMood = field?.mood || "unknown";
 
-  // Live countdown to midnight (12:00 AM)
+  useEffect(() => {
+    if (!field?.place || field.mood === "unknown") return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      place: field.place,
+      date: todayStr,
+      mood: field.mood,
+      weather: field.weatherLabel,
+      air: field.airLabel,
+    });
+    fetch(`/api/quests/generate?${params}`)
+      .then((r) => r.json())
+      .then((data: { quests?: GeneratedBankQuest[]; source?: string }) => {
+        if (cancelled) return;
+        const quests = data.quests || [];
+        setLocalQuests(quests);
+        setQuestSource(data.source || null);
+        if (quests.length > 0) {
+          persistGeneratedQuests(todayStr, field.place!, quests);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLocalQuests([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [field?.place, field?.mood, field?.weatherLabel, field?.airLabel, todayStr]);
+
+  const baseQuests = useMemo(() => {
+    return getDailyQuestsForGuild(
+      todayStr,
+      profile?.guildId || "DEFAULT",
+      weatherMood,
+      localQuests,
+    );
+  }, [todayStr, profile?.guildId, weatherMood, localQuests]);
+
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
       const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0); // Next midnight
+      midnight.setHours(24, 0, 0, 0);
       const diffMs = midnight.getTime() - now.getTime();
 
       if (diffMs <= 0) return "Resetting...";
@@ -146,18 +188,63 @@ export default function DashboardPage() {
     <div className="space-y-5">
       <VerifyHit hit={hit} onDone={() => setHit(null)} />
 
-      <div>
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
-              Today
-            </h2>
-            <p className="text-xs text-ink-muted mt-0.5">
-              {verifiedCount} of 3 verified · resets in {timeUntilMidnight || "…"}
-            </p>
-          </div>
-        </div>
+      <div className="p-5 pb-5 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
+        <h2 className="text-sm font-medium text-ink-secondary mb-2">
+          Your attributes
+        </h2>
+        <AttributeAmoeba attributes={profile.attributes} />
+        <p className="text-xs text-ink-muted mt-2 text-center">
+          N Neighborhood · E Energy · S Social · W Wisdom
+        </p>
       </div>
+
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
+          Today ({verifiedCount}/3)
+        </h2>
+        <p className="text-xs text-ink-muted mt-0.5">
+          Resets in {timeUntilMidnight || "…"}
+        </p>
+      </div>
+
+      {field && field.mood !== "unknown" && (
+        <div className="p-4 rounded-2xl border border-border-subtle bg-canvas-card space-y-2">
+          <p className="text-xs font-medium text-ink-secondary uppercase tracking-wide">
+            Field conditions
+          </p>
+          {field.place && (
+            <p className="text-sm font-medium text-ink-primary">{field.place}</p>
+          )}
+          <p className="text-xs text-ink-secondary leading-relaxed">
+            {field.weatherLabel}
+            {" · "}
+            {field.airLabel}
+            {field.daylightHint ? ` · ${field.daylightHint}` : ""}
+          </p>
+          <p className="text-xs text-attribute-energy">
+            {weatherHint(field.mood, field.airBand)}
+          </p>
+          {localQuests.length > 0 && (
+            <p className="text-xs text-ink-muted">
+              Local quest bank · Gemini
+              {questSource === "cache" ? " (cached)" : ""}
+            </p>
+          )}
+          {civic && (
+            <p className="text-xs text-ink-muted pt-1 border-t border-border-subtle">
+              Your area · {civic.name}
+              {civic.district ? ` · Dist. ${civic.district}` : ""}
+              {civic.party ? ` (${civic.party})` : ""}
+            </p>
+          )}
+        </div>
+      )}
+
+      {field && field.mood === "unknown" && (
+        <p className="text-xs text-ink-muted -mt-2">
+          Allow location for live weather, air quality, and local civic context.
+        </p>
+      )}
 
       <div className="space-y-3">
         {questsWithStatus.map((quest) => (
@@ -178,23 +265,11 @@ export default function DashboardPage() {
       </Link>
 
       {profile.totalVerifiedDeeds > 0 && (
-        <>
-          <StreakCalendar
-            streakDays={profile.streakDays}
-            activeDates={profile.activeDates}
-            lastActiveDate={profile.lastActiveDate}
-          />
-
-          <div className="p-5 pb-6 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
-            <h3 className="text-sm font-medium text-ink-secondary mb-3">
-              Your attributes
-            </h3>
-            <AttributeAmoeba attributes={profile.attributes} />
-            <p className="text-xs text-ink-muted mt-3">
-              {profile.totalVerifiedDeeds} verified deeds · {profile.title}
-            </p>
-          </div>
-        </>
+        <StreakCalendar
+          streakDays={profile.streakDays}
+          activeDates={profile.activeDates}
+          lastActiveDate={profile.lastActiveDate}
+        />
       )}
     </div>
   );
