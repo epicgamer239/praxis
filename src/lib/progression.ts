@@ -154,3 +154,18 @@ export function resolveActiveDates(profile: {
   }
   return set;
 }
+
+/** Relative timestamp for deed logs ("Just now", "Yesterday", "3 days ago"). */
+export function formatRelativeTime(date: Date, now = new Date()): string {
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return "Just now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 14) return `${days} days ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}

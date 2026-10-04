@@ -425,6 +425,14 @@ export async function touchLastSeen(userId: string) {
   });
 }
 
+/** Keep profile.totalVerifiedDeeds aligned with the verified submissions feed. */
+export async function syncVerifiedDeedCount(userId: string, count: number) {
+  if (count < 0) return;
+  await updateDoc(doc(db, 'users', userId), {
+    totalVerifiedDeeds: count,
+  });
+}
+
 // 9. Live User Verified Deeds History Listener
 export function subscribeToUserVerifiedDeeds(
   userId: string,

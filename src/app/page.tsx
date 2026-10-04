@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import AttributeAmoeba from "@/components/amoeba/AttributeAmoeba";
+import CompassInstrument from "@/components/compass/CompassInstrument";
 import QuestCard from "@/components/quests/QuestCard";
 import GuildGate from "@/components/guild/GuildGate";
 import StreakCalendar from "@/components/streak/StreakCalendar";
@@ -44,7 +44,6 @@ export default function DashboardPage() {
   const [timeUntilMidnight, setTimeUntilMidnight] = useState("");
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const [rerollingSlot, setRerollingSlot] = useState<number | null>(null);
-  const [rerollMode, setRerollMode] = useState(false);
   const seenVerified = useRef<Set<string> | null>(null);
   const lastLevel = useRef<number | null>(null);
 
@@ -217,8 +216,9 @@ export default function DashboardPage() {
         lockedQuestIds,
       });
       playSound("soft");
-      toast(`Quest swapped · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`);
-      if (result.remaining <= 0) setRerollMode(false);
+      toast(
+        `Quest swapped · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`,
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Reroll failed.";
       toast(message);
@@ -247,9 +247,7 @@ export default function DashboardPage() {
 
   if (loading || !user || !profile) {
     return (
-      <div className="py-16 text-center text-sm text-ink-muted">
-        Loading…
-      </div>
+      <div className="py-16 text-center text-sm text-ink-muted">Loading…</div>
     );
   }
 
@@ -262,59 +260,33 @@ export default function DashboardPage() {
   ).length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <VerifyHit hit={hit} onDone={() => setHit(null)} />
 
-      <div className="p-5 pb-5 rounded-2xl border border-border-subtle bg-canvas-card overflow-visible">
-        <h2 className="text-sm font-medium text-ink-secondary mb-2">
-          Your attributes
+      <CompassInstrument
+        attributes={profile.attributes}
+        level={profile.level}
+        streakDays={profile.streakDays}
+      />
+
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
+          Today ({verifiedCount}/3)
         </h2>
-        <AttributeAmoeba attributes={profile.attributes} />
-        <p className="text-xs text-ink-muted mt-2 text-center">
-          N Neighborhood · E Energy · S Social · W Wisdom
+        <p className="text-xs text-ink-muted mt-0.5 tabular-nums">
+          Resets in {timeUntilMidnight || "…"}
+          {field && field.mood !== "unknown"
+            ? ` · ${weatherHint(field.mood, field.airBand)}`
+            : ""}
+          {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
         </p>
       </div>
 
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
-            Today ({verifiedCount}/3)
-          </h2>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Resets in {timeUntilMidnight || "…"}
-            {field && field.mood !== "unknown"
-              ? ` · ${weatherHint(field.mood, field.airBand)}`
-              : ""}
-            {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
-          </p>
-        </div>
-        {rerollsLeft > 0 && (
-          <button
-            type="button"
-            onClick={() => setRerollMode((v) => !v)}
-            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-              rerollMode
-                ? "bg-moss text-ink-primary"
-                : "bg-canvas-subtle text-ink-secondary hover:text-ink-primary"
-            }`}
-          >
-            {rerollMode ? "Done" : "Reroll"}
-          </button>
-        )}
-      </div>
-
-      {rerollMode && (
-        <p className="text-xs text-attribute-neighborhood -mt-2">
-          Reroll mode — tap a quest to swap it.
-        </p>
-      )}
-
-      <div className="space-y-3">
+      <div className="space-y-4">
         {questsWithStatus.map((quest, idx) => (
           <QuestCard
             key={quest.id}
             quest={quest}
-            rerollMode={rerollMode}
             canReroll={
               rerollsLeft > 0 &&
               (!quest.status || quest.status === "pending")
@@ -332,7 +304,7 @@ export default function DashboardPage() {
           </h3>
           <Link
             href="/verify"
-            className="text-[11px] text-ink-muted hover:text-ink-primary transition-colors"
+            className="text-[12px] text-ink-muted hover:text-ink-primary transition-colors"
           >
             Verify →
           </Link>
@@ -342,7 +314,7 @@ export default function DashboardPage() {
 
       <Link
         href="/verify"
-        className="block p-4 rounded-2xl border border-border-subtle bg-canvas-card"
+        className="block py-3 border-l-4 border-l-attribute-social pl-3"
       >
         <p className="text-sm font-medium text-ink-primary">
           Help others · +{VOUCH_BONUS_XP} Social

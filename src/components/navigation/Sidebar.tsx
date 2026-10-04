@@ -66,7 +66,7 @@ export default function Sidebar() {
               >
                 <span>{item.label}</span>
                 {showBadge && (
-                  <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-attribute-neighborhood text-[10px] font-bold text-ink-primary flex items-center justify-center">
+                  <span className="min-w-[1.1rem] text-right text-[11px] font-bold tabular-nums text-attribute-neighborhood">
                     {verifyCount > 9 ? "9+" : verifyCount}
                   </span>
                 )}

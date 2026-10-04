@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/navigation/BottomNav";
-import MobileHeader from "@/components/navigation/MobileHeader";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { unlockAudio } from "@/lib/sounds";
 import SplashScreen from "@/components/fx/SplashScreen";
@@ -86,7 +85,6 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="praxis-shell">
-      <MobileHeader />
       <main className="praxis-main">
         <div className="max-w-lg mx-auto min-h-full">{children}</div>
       </main>

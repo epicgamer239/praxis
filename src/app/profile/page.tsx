@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { subscribeToUserVerifiedDeeds } from "@/lib/firestoreService";
+import { subscribeToUserVerifiedDeeds, syncVerifiedDeedCount } from "@/lib/firestoreService";
+import { formatRelativeTime } from "@/lib/progression";
 import { ATTRIBUTE_TEXT } from "@/lib/utils";
 import { PeerSubmission } from "@/types";
 
@@ -25,7 +26,7 @@ function deedDate(deed: PeerSubmission): string {
     if (!Number.isNaN(parsed.getTime())) d = parsed;
   }
   if (!d) return "";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatRelativeTime(d);
 }
 
 export default function ProfilePage() {
@@ -40,40 +41,60 @@ export default function ProfilePage() {
     return () => unsub();
   }, [profile?.id]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    const live = verifiedDeeds.length;
+    if (live === 0) return;
+    if ((profile.totalVerifiedDeeds || 0) !== live) {
+      void syncVerifiedDeedCount(profile.id, live).catch(() => {
+        /* best-effort */
+      });
+    }
+  }, [profile?.id, profile?.totalVerifiedDeeds, verifiedDeeds.length]);
+
   if (loading || !profile) {
     return (
       <div className="py-16 text-center text-sm text-ink-muted">Loading…</div>
     );
   }
 
+  const verifiedCount = Math.max(
+    profile.totalVerifiedDeeds || 0,
+    verifiedDeeds.length,
+  );
+
   const attributes = [
     {
       key: "neighborhood",
-      name: "N · Neighborhood",
+      name: "Neighborhood",
       stat: profile.attributes.neighborhood,
       color: "bg-attribute-neighborhood",
       textColor: "text-attribute-neighborhood",
+      border: "border-l-attribute-neighborhood",
     },
     {
       key: "energy",
-      name: "E · Energy",
+      name: "Energy",
       stat: profile.attributes.energy,
       color: "bg-attribute-energy",
       textColor: "text-attribute-energy",
+      border: "border-l-attribute-energy",
     },
     {
       key: "social",
-      name: "S · Social",
+      name: "Social",
       stat: profile.attributes.social,
       color: "bg-attribute-social",
       textColor: "text-attribute-social",
+      border: "border-l-attribute-social",
     },
     {
       key: "wisdom",
-      name: "W · Wisdom",
+      name: "Wisdom",
       stat: profile.attributes.wisdom,
       color: "bg-attribute-wisdom",
       textColor: "text-attribute-wisdom",
+      border: "border-l-attribute-wisdom",
     },
   ];
 
@@ -85,24 +106,24 @@ export default function ProfilePage() {
         </h2>
       </div>
 
-      <div className="p-6 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between gap-4">
+      <div className="py-1 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-ink-primary">
             {profile.name}
           </h3>
           <p className="text-xs text-ink-secondary mt-0.5">
-            {profile.title} · {profile.guildName || "No Guild Joined"}
+            {profile.title} · {profile.guildName || "No guild joined"}
           </p>
         </div>
         <div className="flex items-start gap-5 shrink-0 text-right">
           <div>
-            <p className="text-2xl font-semibold text-ink-primary">
-              {profile.totalVerifiedDeeds}
+            <p className="text-2xl font-semibold text-ink-primary tabular-nums">
+              {verifiedCount}
             </p>
             <p className="text-xs text-ink-muted">Verified deeds</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold text-ink-primary">
+            <p className="text-2xl font-semibold text-ink-primary tabular-nums">
               {profile.totalVouchesGiven ?? 0}
             </p>
             <p className="text-xs text-ink-muted">Vouches given</p>
@@ -126,20 +147,20 @@ export default function ProfilePage() {
               return (
                 <div
                   key={attr.key}
-                  className="p-4 rounded-2xl border border-border-subtle bg-canvas-card space-y-3"
+                  className={`pl-3 py-3 border-l-4 ${attr.border} space-y-2`}
                 >
                   <div className="flex justify-between items-center text-xs">
                     <span className={`font-medium ${attr.textColor}`}>
                       {attr.name}
                     </span>
-                    <span className="text-ink-secondary">
+                    <span className="text-ink-secondary tabular-nums">
                       Level {attr.stat.level} · {attr.stat.currentXp} /{" "}
                       {attr.stat.maxXp} XP
                     </span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-canvas-subtle overflow-hidden">
+                  <div className="w-full h-1.5 rounded bg-canvas-subtle overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${attr.color} transition-[width] duration-700`}
+                      className={`h-full ${attr.color} transition-[width] duration-700`}
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
@@ -161,7 +182,7 @@ export default function ProfilePage() {
               {verifiedDeeds.map((deed) => (
                 <div
                   key={deed.id}
-                  className="p-4 rounded-2xl border border-border-subtle bg-canvas-card space-y-2"
+                  className="pl-3 py-3 border-l-4 border-l-border-strong space-y-2"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -175,7 +196,7 @@ export default function ProfilePage() {
                       </p>
                     </div>
                     {deedDate(deed) && (
-                      <span className="text-xs text-ink-muted shrink-0">
+                      <span className="text-xs text-ink-muted shrink-0 tabular-nums">
                         {deedDate(deed)}
                       </span>
                     )}
@@ -199,7 +220,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => signOut()}
-          className="praxis-btn praxis-btn--ghost praxis-btn--pill"
+          className="praxis-btn praxis-btn--ghost"
         >
           Log out
         </button>

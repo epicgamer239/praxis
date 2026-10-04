@@ -211,13 +211,13 @@ export default function GuildPage() {
             type="button"
             onClick={handleCopyCode}
             title="Click to copy invite code"
-            className="text-xs text-ink-muted hover:text-ink-primary transition-colors flex items-center space-x-1.5 self-start"
+            className="text-xs text-ink-muted hover:text-ink-primary transition-colors flex items-center gap-1.5 self-start"
           >
-            <span>Invite Code:</span>
-            <span className="font-semibold text-attribute-neighborhood underline underline-offset-2">
+            <span>Invite code:</span>
+            <span className="font-semibold text-attribute-neighborhood tracking-wider">
               {inviteCode}
             </span>
-            <span className="text-[10px] text-ink-muted">(Copy)</span>
+            <span className="text-[11px] text-ink-muted">(Click to copy)</span>
           </button>
         ) : (
           <span className="text-xs text-ink-muted self-start">
@@ -324,25 +324,25 @@ export default function GuildPage() {
           <h3 className="text-sm font-medium text-ink-secondary">
             Standings
           </h3>
-          <div className="flex space-x-1 text-xs">
+          <div className="flex items-end gap-3 text-xs">
             <button
               type="button"
               onClick={() => setLeaderboardTab("weekly")}
-              className={`px-2 py-1 rounded transition-colors ${
+              className={`pb-1 transition-colors ${
                 leaderboardTab === "weekly"
-                  ? "text-ink-primary font-medium bg-canvas-subtle"
+                  ? "text-ink-primary font-medium border-b border-ink-primary"
                   : "text-ink-muted hover:text-ink-secondary"
               }`}
             >
               This week
             </button>
-            <span className="text-ink-muted">·</span>
+            <span className="text-ink-muted pb-1">·</span>
             <button
               type="button"
               onClick={() => setLeaderboardTab("all-time")}
-              className={`px-2 py-1 rounded transition-colors ${
+              className={`pb-1 transition-colors ${
                 leaderboardTab === "all-time"
-                  ? "text-ink-primary font-medium bg-canvas-subtle"
+                  ? "text-ink-primary font-medium border-b border-ink-primary"
                   : "text-ink-muted hover:text-ink-secondary"
               }`}
             >

@@ -3,7 +3,7 @@
 
 @theme {
   --color-canvas-base: #111312;
-  --color-canvas-card: #191C1B;
+  --color-canvas-card: #181A18;
   --color-canvas-subtle: #222624;
   --color-canvas-hover: #292E2B;
 
@@ -14,7 +14,7 @@
   --color-moss: #3B6E57;
   --color-moss-hover: #4A876C;
 
-  --color-border-subtle: #282E2A;
+  --color-border-subtle: #262A27;
   --color-border-strong: #3A423D;
 
   --color-attribute-wisdom: #38BDF8;
@@ -108,18 +108,13 @@ button {
 
 .praxis-bottom-nav__badge {
   position: absolute;
-  top: -0.35rem;
-  right: -0.55rem;
-  min-width: 1.05rem;
-  height: 1.05rem;
-  padding: 0 0.28rem;
-  border-radius: 999px;
-  background: var(--color-attribute-neighborhood);
-  color: var(--color-ink-primary);
-  font-size: 9px;
+  top: -0.4rem;
+  right: -0.65rem;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.05rem;
-  text-align: center;
+  line-height: 1;
+  color: var(--color-attribute-neighborhood);
+  font-variant-numeric: tabular-nums;
 }
 
 .praxis-mobile-header {
@@ -171,7 +166,8 @@ button {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 1rem 1.15rem calc(8.25rem + env(safe-area-inset-bottom, 0px));
+  padding: max(0.85rem, env(safe-area-inset-top, 0px)) 1.15rem
+    calc(8.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 html,
@@ -432,10 +428,9 @@ body::-webkit-scrollbar,
 
 .app-splash__hint {
   margin-top: 0.1rem;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--color-ink-muted);
   animation: splash-hint-pulse 1.8s ease-in-out infinite;
 }
@@ -740,9 +735,8 @@ body::-webkit-scrollbar,
 
 .verify-hit__kicker {
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--color-moss-hover);
 }
 

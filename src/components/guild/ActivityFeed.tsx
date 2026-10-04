@@ -18,10 +18,16 @@ export default function ActivityFeed({ items }: ActivityFeedProps) {
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5">
       {items.map((item) => {
         const row = (
-          <div className="flex items-start justify-between gap-3 p-3 rounded-xl border border-border-subtle bg-canvas-card">
+          <div
+            className={`flex items-start justify-between gap-3 pl-3 py-2 border-l-4 ${
+              item.kind === "verified"
+                ? "border-l-attribute-energy"
+                : "border-l-attribute-neighborhood"
+            }`}
+          >
             <p className="text-xs text-ink-secondary leading-snug min-w-0">
               <span
                 className={
@@ -34,7 +40,7 @@ export default function ActivityFeed({ items }: ActivityFeedProps) {
               </span>
               {item.text}
             </p>
-            <span className="text-[10px] text-ink-muted shrink-0 pt-0.5">
+            <span className="text-[11px] text-ink-muted shrink-0 pt-0.5 tabular-nums">
               {formatActivityTime(item.atMs)}
             </span>
           </div>
