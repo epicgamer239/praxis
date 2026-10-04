@@ -3,6 +3,7 @@
 
 import React, { useState } from "react";
 import { unlockAndPlay } from "@/lib/sounds";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
 
 /** Leaf only — no app-icon box. */
 function MagicalLeaf({ entering }: { entering: boolean }) {
@@ -109,6 +110,8 @@ export default function SplashScreen({
   const handleEnter = () => {
     if (!needsTap || entering) return;
     setEntering(true);
+    // Must run in this tap — iOS drops motion permission after the splash delay.
+    void enableDeviceHeading();
     unlockAndPlay("boot");
     window.setTimeout(() => onEnter?.(), ENTER_HOLD_MS);
   };

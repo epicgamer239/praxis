@@ -47,6 +47,9 @@ export default function QuestCard({
               )}
             >
               {quest.attributeLabel} · +{quest.xpReward} XP
+              {typeof quest.difficulty === "number"
+                ? ` · ${quest.difficulty}/5`
+                : ""}
             </p>
             <h3 className="mt-1.5 text-[17px] font-semibold tracking-tight text-ink-primary leading-snug">
               {quest.title}

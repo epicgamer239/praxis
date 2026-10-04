@@ -11,7 +11,7 @@ let listening = false;
 let enabled = false;
 
 type OrientationPayload = DeviceOrientationEvent & {
-  webkitCompassHeading?: number;
+  webkitCompassHeading?: number | null;
   absolute?: boolean;
 };
 
@@ -37,16 +37,23 @@ function publish(heading: number | null) {
   listeners.forEach((fn) => fn(heading));
 }
 
+function normalizeDeg(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
 function headingFromEvent(e: OrientationPayload): number | null {
-  if (typeof e.webkitCompassHeading === "number") {
-    return ((e.webkitCompassHeading % 360) + 360) % 360;
+  // iOS Safari / PWA
+  if (
+    typeof e.webkitCompassHeading === "number" &&
+    !Number.isNaN(e.webkitCompassHeading)
+  ) {
+    return normalizeDeg(e.webkitCompassHeading);
   }
-  if (e.absolute === true && typeof e.alpha === "number") {
-    return (360 - e.alpha) % 360;
-  }
-  // Some Androids fire non-absolute deviceorientation with usable alpha.
-  if (typeof e.alpha === "number" && e.absolute !== false) {
-    return (360 - e.alpha) % 360;
+  // Absolute orientation (Chrome / Firefox Android)
+  if (typeof e.alpha === "number" && !Number.isNaN(e.alpha)) {
+    if (e.absolute === true || e.type === "deviceorientationabsolute") {
+      return normalizeDeg(360 - e.alpha);
+    }
   }
   return null;
 }
@@ -59,8 +66,8 @@ function onOrient(event: Event) {
 
 function attachListeners() {
   if (listening || typeof window === "undefined") return;
-  window.addEventListener("deviceorientationabsolute", onOrient, true);
-  window.addEventListener("deviceorientation", onOrient, true);
+  window.addEventListener("deviceorientationabsolute", onOrient);
+  window.addEventListener("deviceorientation", onOrient);
   listening = true;
 }
 
@@ -90,15 +97,11 @@ async function ensurePermission(): Promise<boolean> {
   }
 }
 
-/** Call from a user gesture (splash tap). Safe to call repeatedly. */
+/** Call from a user gesture (splash / compass tap). Safe to call repeatedly. */
 export async function enableDeviceHeading(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   const ok = await ensurePermission();
-  if (!ok) {
-    enabled = false;
-    writeEnabled(false);
-    return false;
-  }
+  if (!ok) return false;
   enabled = true;
   writeEnabled(true);
   attachListeners();

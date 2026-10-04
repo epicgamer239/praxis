@@ -99,6 +99,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Shared daily Gemini quest bank (keyed by date + place + weather mood).
+    match /questBanks/{bankId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['cacheId', 'dateStr', 'place', 'mood', 'quests'])
+        && request.resource.data.cacheId is string
+        && request.resource.data.dateStr is string
+        && request.resource.data.place is string
+        && request.resource.data.mood is string
+        && request.resource.data.quests is list
+        && request.resource.data.quests.size() >= 4
+        && request.resource.data.quests.size() <= 16;
+      allow update, delete: if false;
+    }
+
     match /chat/{message} {
       allow read, write: if true;
     }

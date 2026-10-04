@@ -3,10 +3,20 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { subscribeToUserVerifiedDeeds, syncVerifiedDeedCount } from "@/lib/firestoreService";
+import StreakCalendar from "@/components/streak/StreakCalendar";
+import {
+  saveUserGoal,
+  subscribeToUserVerifiedDeeds,
+  syncVerifiedDeedCount,
+} from "@/lib/firestoreService";
 import { formatRelativeTime } from "@/lib/progression";
+import {
+  DEFAULT_QUEST_DIFFICULTY,
+  GOAL_OPTIONS,
+  labelForGoal,
+} from "@/lib/goals";
 import { ATTRIBUTE_TEXT } from "@/lib/utils";
-import { PeerSubmission } from "@/types";
+import { GoalId, PeerSubmission } from "@/types";
 
 function deedDate(deed: PeerSubmission): string {
   const raw = (deed.verifiedAt || deed.createdAt) as {
@@ -32,6 +42,7 @@ function deedDate(deed: PeerSubmission): string {
 export default function ProfilePage() {
   const { profile, loading, signOut } = useAuth();
   const [verifiedDeeds, setVerifiedDeeds] = useState<PeerSubmission[]>([]);
+  const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -111,12 +122,7 @@ export default function ProfilePage() {
           <h3 className="text-lg font-semibold text-ink-primary">
             {profile.name}
           </h3>
-          <p className="text-xs text-ink-secondary mt-0.5">
-            {profile.title} · {profile.guildName || "No guild joined"}
-          </p>
-          <p className="text-xs text-ink-muted mt-2 tabular-nums">
-            Lv {profile.level} · {profile.streakDays}d streak
-          </p>
+          <p className="text-xs text-ink-secondary mt-0.5">{profile.title}</p>
         </div>
         <div className="flex items-start gap-5 shrink-0 text-right">
           <div>
@@ -133,6 +139,53 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <div className="space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-sm font-medium text-ink-secondary">Goal</h3>
+          <p className="text-xs text-ink-muted tabular-nums">
+            Band {Math.round(profile.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY)}
+            /5
+          </p>
+        </div>
+        <p className="text-sm font-medium text-ink-primary">
+          {labelForGoal(profile.goalId)}
+        </p>
+        <div className="space-y-1.5">
+          {GOAL_OPTIONS.map((goal) => {
+            const on = profile.goalId === goal.id;
+            return (
+              <button
+                key={goal.id}
+                type="button"
+                disabled={savingGoal || on}
+                onClick={() => {
+                  if (!profile.id || on) return;
+                  setSavingGoal(true);
+                  void saveUserGoal(profile.id, goal.id as GoalId)
+                    .catch(() => {
+                      /* ignore */
+                    })
+                    .finally(() => setSavingGoal(false));
+                }}
+                className={`w-full text-left pl-3 py-2.5 border-l-4 text-sm ${
+                  on
+                    ? "border-l-moss text-ink-primary font-medium"
+                    : "border-l-border-subtle text-ink-secondary"
+                }`}
+              >
+                {goal.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <StreakCalendar
+        streakDays={profile.streakDays}
+        activeDates={profile.activeDates}
+        lastActiveDate={profile.lastActiveDate}
+      />
 
       <div className="space-y-6">
         <div className="space-y-4">

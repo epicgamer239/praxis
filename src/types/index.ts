@@ -3,6 +3,9 @@
 /** Compass attributes: N Neighborhood, E Energy, S Social, W Wisdom */
 export type AttributeType = 'neighborhood' | 'energy' | 'social' | 'wisdom';
 
+/** Primary focus that drives adaptive quest selection. */
+export type GoalId = 'balanced' | 'confidence' | 'service';
+
 export interface AttributeStat {
   level: number;
   currentXp: number;
@@ -28,6 +31,10 @@ export interface UserProfile {
   nudgedByNames?: string[]; // Friends who pinged the user
   photoHashes?: string[];
   attributes: Record<AttributeType, AttributeStat>;
+  /** Chosen focus for adaptive quests. */
+  goalId?: GoalId | null;
+  /** Adaptive difficulty band 1–5 (eases on skip, rises on complete). */
+  questDifficulty?: number;
   /** Monday YYYY-MM-DD for the current reroll week. */
   rerollWeekStart?: string;
   /** Rerolls left in the current week (max 3). */
@@ -57,6 +64,8 @@ export interface Quest {
   attributeLabel: string;
   xpReward: number;
   requiredProof: string;
+  /** Challenge band 1–5 when from the curated graph. */
+  difficulty?: number;
   dateKey?: string;
   status?: 'pending' | 'awaiting_vouches' | 'verified';
   vouchesReceived?: number;

@@ -26,31 +26,30 @@ export default function StreakCalendar({
   }, [activeDates, lastActiveDate, streakDays]);
 
   return (
-    <div className="p-5 sm:p-6 rounded-2xl border border-border-subtle bg-canvas-card">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-ink-secondary">
-          Consistency Streak
-        </h3>
-        <span className="text-xs text-attribute-energy font-medium">
-          {streakDays}-day active
-        </span>
+    <div className="py-1 space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-medium text-ink-secondary">Streak</h3>
+        <p className="text-sm font-semibold text-ink-primary tabular-nums">
+          {streakDays}-day
+          <span className="text-xs font-medium text-ink-muted"> active</span>
+        </p>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+      <div className="grid grid-cols-7 gap-1.5 text-center">
         {days.map((day) => (
           <div
             key={day.dateStr}
             className={cn(
-              "p-2 sm:p-2.5 rounded-xl border",
+              "py-2.5 border-b-2",
               day.isToday
-                ? "border-moss bg-canvas-subtle streak-today"
-                : "border-border-subtle bg-canvas-subtle",
+                ? "border-moss streak-today"
+                : day.isActive
+                  ? "border-attribute-energy/50"
+                  : "border-border-subtle",
               day.isFuture && "opacity-40",
             )}
           >
-            <p className="text-[10px] sm:text-[11px] text-ink-muted mb-1">
-              {day.label}
-            </p>
+            <p className="text-[10px] text-ink-muted mb-1">{day.label}</p>
             <p
               className={cn(
                 "text-xs font-medium",

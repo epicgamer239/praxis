@@ -1,13 +1,10 @@
 // src/components/compass/CompassInstrument.tsx
 "use client";
 
-import React, { useId, useMemo } from "react";
+import React, { useId, useMemo, useState } from "react";
 import { UserProfile } from "@/types";
 import { useDeviceHeading } from "@/hooks/useDeviceHeading";
-import {
-  enableDeviceHeading,
-  isDeviceHeadingEnabled,
-} from "@/lib/deviceHeading";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
 
 interface CompassInstrumentProps {
   attributes: UserProfile["attributes"];
@@ -63,22 +60,22 @@ export default function CompassInstrument({
   const heading = useDeviceHeading();
   const live = heading != null;
   const rotation = live ? -heading : 0;
+  const [asking, setAsking] = useState(false);
 
   const geometry = useMemo(() => {
-    const cx = 160;
-    const cy = 160;
-    const outerR = 128;
-    const hubR = 36;
-    const minR = hubR + 22;
-    const maxR = 102;
-    const labelR = outerR + 13;
+    const cx = 200;
+    const cy = 200;
+    const outerR = 158;
+    const hubR = 44;
+    const minR = hubR + 24;
+    const maxR = 128;
+    const labelR = outerR + 26;
 
     const rN = effRadius(attributes.neighborhood, minR, maxR);
     const rE = effRadius(attributes.energy, minR, maxR);
     const rS = effRadius(attributes.social, minR, maxR);
     const rW = effRadius(attributes.wisdom, minR, maxR);
 
-    // Petal tips at NESW + softer intercardinals
     const radii = [
       rN,
       (rN + rE) * 0.42,
@@ -124,7 +121,7 @@ export default function CompassInstrument({
     }[] = [];
     for (let deg = 0; deg < 360; deg += 5) {
       const major = deg % 30 === 0;
-      const inner = outerR - (major ? 9 : 4.5);
+      const inner = outerR - (major ? 11 : 5.5);
       const a = polar(cx, cy, inner, deg);
       const b = polar(cx, cy, outerR, deg);
       ticks.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, major });
@@ -135,10 +132,10 @@ export default function CompassInstrument({
     const pathS = arcPath(cx, cy, labelR, 138, 222, true);
     const pathW = arcPath(cx, cy, labelR, 310, 230, false);
 
-    const letterN = polar(cx, cy, outerR - 16, 0);
-    const letterE = polar(cx, cy, outerR - 16, 90);
-    const letterS = polar(cx, cy, outerR - 16, 180);
-    const letterW = polar(cx, cy, outerR - 16, 270);
+    const letterN = polar(cx, cy, outerR - 20, 0);
+    const letterE = polar(cx, cy, outerR - 20, 90);
+    const letterS = polar(cx, cy, outerR - 20, 180);
+    const letterW = polar(cx, cy, outerR - 20, 270);
 
     return {
       cx,
@@ -181,242 +178,252 @@ export default function CompassInstrument({
   const idW = `arcW-${uid}`;
 
   const onActivate = () => {
-    if (!isDeviceHeadingEnabled() || heading == null) {
-      void enableDeviceHeading();
-    }
+    if (live) return;
+    setAsking(true);
+    void enableDeviceHeading().finally(() => setAsking(false));
   };
 
   return (
-    <div
-      className="w-full select-none"
-      style={{ height: "min(44vh, 380px)" }}
-      onPointerDown={onActivate}
-      role="presentation"
-    >
-      <svg
-        viewBox="-48 -24 416 368"
-        className="w-full h-full"
-        role="img"
+    <div className="w-full select-none">
+      <button
+        type="button"
+        className="block w-full aspect-square max-h-[min(58vh,100vw)] mx-auto bg-transparent p-0 border-0 cursor-pointer"
+        onClick={onActivate}
         aria-label={
           live
-            ? `Compass · facing ${Math.round(heading)}° · Level ${level}`
-            : `Compass · Level ${level} · ${streakDays}-day streak`
+            ? `Live compass, facing ${Math.round(heading)} degrees`
+            : "Tap to enable live compass"
         }
       >
-        <defs>
-          <radialGradient id={`hub-${uid}`} cx="50%" cy="45%" r="65%">
-            <stop offset="0%" stopColor="#2A2E2B" />
-            <stop offset="100%" stopColor="#181A18" />
-          </radialGradient>
-          <filter id={`glow-${uid}`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="3.5" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+        <svg
+          viewBox="-44 -44 488 488"
+          className="w-full h-full"
+          role="img"
+          aria-hidden
+        >
+          <defs>
+            <radialGradient id={`hub-${uid}`} cx="50%" cy="45%" r="65%">
+              <stop offset="0%" stopColor="#2A2E2B" />
+              <stop offset="100%" stopColor="#181A18" />
+            </radialGradient>
+            <filter
+              id={`glow-${uid}`}
+              x="-40%"
+              y="-40%"
+              width="180%"
+              height="180%"
+            >
+              <feGaussianBlur stdDeviation="3.5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-        {/* Rose rotates opposite heading so N tracks magnetic north */}
-        <g transform={`rotate(${rotation.toFixed(2)} ${cx} ${cy})`}>
-          <path id={idN} d={pathN} fill="none" />
-          <path id={idE} d={pathE} fill="none" />
-          <path id={idS} d={pathS} fill="none" />
-          <path id={idW} d={pathW} fill="none" />
+          <g transform={`rotate(${rotation.toFixed(2)} ${cx} ${cy})`}>
+            <path id={idN} d={pathN} fill="none" />
+            <path id={idE} d={pathE} fill="none" />
+            <path id={idS} d={pathS} fill="none" />
+            <path id={idW} d={pathW} fill="none" />
 
-          <circle
-            cx={cx}
-            cy={cy}
-            r={outerR}
-            fill="none"
-            stroke="#3A423D"
-            strokeWidth="1.25"
-          />
-          <circle
-            cx={cx}
-            cy={cy}
-            r={outerR - 12}
-            fill="none"
-            stroke="#262A27"
-            strokeWidth="0.75"
-          />
-
-          {ticks.map((t, i) => (
-            <line
-              key={i}
-              x1={t.x1}
-              y1={t.y1}
-              x2={t.x2}
-              y2={t.y2}
-              stroke={t.major ? "#4A524C" : "#2E3430"}
-              strokeWidth={t.major ? 1.35 : 0.75}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={outerR}
+              fill="none"
+              stroke="#3A423D"
+              strokeWidth="1.5"
             />
-          ))}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={outerR - 14}
+              fill="none"
+              stroke="#262A27"
+              strokeWidth="0.85"
+            />
 
-          <g filter={`url(#glow-${uid})`} opacity="0.9">
-            {petals.map((p, i) => (
-              <path
+            {ticks.map((t, i) => (
+              <line
                 key={i}
-                d={p.d}
-                fill={p.color}
-                fillOpacity={0.38}
-                stroke={p.color}
-                strokeOpacity={0.55}
-                strokeWidth="1"
+                x1={t.x1}
+                y1={t.y1}
+                x2={t.x2}
+                y2={t.y2}
+                stroke={t.major ? "#4A524C" : "#2E3430"}
+                strokeWidth={t.major ? 1.5 : 0.85}
               />
             ))}
+
+            <g filter={`url(#glow-${uid})`} opacity="0.9">
+              {petals.map((p, i) => (
+                <path
+                  key={i}
+                  d={p.d}
+                  fill={p.color}
+                  fillOpacity={0.38}
+                  stroke={p.color}
+                  strokeOpacity={0.55}
+                  strokeWidth="1.1"
+                />
+              ))}
+            </g>
+
+            <text
+              x={letterN.x}
+              y={letterN.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#FACC15"
+              fontSize="22"
+              fontWeight="700"
+            >
+              N
+            </text>
+            <text
+              x={letterE.x}
+              y={letterE.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#4ADE80"
+              fontSize="22"
+              fontWeight="700"
+            >
+              E
+            </text>
+            <text
+              x={letterS.x}
+              y={letterS.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#FB923C"
+              fontSize="22"
+              fontWeight="700"
+            >
+              S
+            </text>
+            <text
+              x={letterW.x}
+              y={letterW.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#38BDF8"
+              fontSize="22"
+              fontWeight="700"
+            >
+              W
+            </text>
+
+            <text
+              fill="#FACC15"
+              fontSize="14"
+              fontWeight="600"
+              letterSpacing="0.04em"
+              opacity="0.95"
+            >
+              <textPath
+                href={`#${idN}`}
+                xlinkHref={`#${idN}`}
+                startOffset="50%"
+                textAnchor="middle"
+              >
+                Neighborhood
+              </textPath>
+            </text>
+            <text
+              fill="#4ADE80"
+              fontSize="14"
+              fontWeight="600"
+              letterSpacing="0.06em"
+              opacity="0.95"
+            >
+              <textPath
+                href={`#${idE}`}
+                xlinkHref={`#${idE}`}
+                startOffset="50%"
+                textAnchor="middle"
+              >
+                Energy
+              </textPath>
+            </text>
+            <text
+              fill="#FB923C"
+              fontSize="14"
+              fontWeight="600"
+              letterSpacing="0.06em"
+              opacity="0.95"
+            >
+              <textPath
+                href={`#${idS}`}
+                xlinkHref={`#${idS}`}
+                startOffset="50%"
+                textAnchor="middle"
+              >
+                Social
+              </textPath>
+            </text>
+            <text
+              fill="#38BDF8"
+              fontSize="14"
+              fontWeight="600"
+              letterSpacing="0.06em"
+              opacity="0.95"
+            >
+              <textPath
+                href={`#${idW}`}
+                xlinkHref={`#${idW}`}
+                startOffset="50%"
+                textAnchor="middle"
+              >
+                Wisdom
+              </textPath>
+            </text>
           </g>
 
-          <text
-            x={letterN.x}
-            y={letterN.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#FACC15"
-            fontSize="15"
-            fontWeight="700"
-          >
-            N
-          </text>
-          <text
-            x={letterE.x}
-            y={letterE.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#4ADE80"
-            fontSize="15"
-            fontWeight="700"
-          >
-            E
-          </text>
-          <text
-            x={letterS.x}
-            y={letterS.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#FB923C"
-            fontSize="15"
-            fontWeight="700"
-          >
-            S
-          </text>
-          <text
-            x={letterW.x}
-            y={letterW.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#38BDF8"
-            fontSize="15"
-            fontWeight="700"
-          >
-            W
-          </text>
+          <polygon
+            points={`${cx},${cy - outerR - 8} ${cx - 6.5},${cy - outerR + 10} ${cx + 6.5},${cy - outerR + 10}`}
+            fill={live ? "#F0EFEA" : "#5A625C"}
+            opacity={live ? 0.95 : 0.55}
+          />
 
+          <circle
+            cx={cx}
+            cy={cy}
+            r={hubR}
+            fill={`url(#hub-${uid})`}
+            stroke="#3A423D"
+            strokeWidth="1.75"
+          />
           <text
-            fill="#FACC15"
-            fontSize="10.5"
-            fontWeight="500"
-            letterSpacing="0.06em"
-            opacity="0.92"
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            fill="#F0EFEA"
+            fontSize="20"
+            fontWeight="700"
+            className="tabular-nums"
           >
-            <textPath
-              href={`#${idN}`}
-              xlinkHref={`#${idN}`}
-              startOffset="50%"
-              textAnchor="middle"
-            >
-              Neighborhood
-            </textPath>
+            Lv {level}
           </text>
           <text
-            fill="#4ADE80"
-            fontSize="10.5"
+            x={cx}
+            y={cy + 18}
+            textAnchor="middle"
+            fill="#9EA7A0"
+            fontSize="12"
             fontWeight="500"
-            letterSpacing="0.08em"
-            opacity="0.92"
+            className="tabular-nums"
           >
-            <textPath
-              href={`#${idE}`}
-              xlinkHref={`#${idE}`}
-              startOffset="50%"
-              textAnchor="middle"
-            >
-              Energy
-            </textPath>
+            {live ? `${Math.round(heading)}°` : `${streakDays}d streak`}
           </text>
-          <text
-            fill="#FB923C"
-            fontSize="10.5"
-            fontWeight="500"
-            letterSpacing="0.08em"
-            opacity="0.92"
-          >
-            <textPath
-              href={`#${idS}`}
-              xlinkHref={`#${idS}`}
-              startOffset="50%"
-              textAnchor="middle"
-            >
-              Social
-            </textPath>
-          </text>
-          <text
-            fill="#38BDF8"
-            fontSize="10.5"
-            fontWeight="500"
-            letterSpacing="0.08em"
-            opacity="0.92"
-          >
-            <textPath
-              href={`#${idW}`}
-              xlinkHref={`#${idW}`}
-              startOffset="50%"
-              textAnchor="middle"
-            >
-              Wisdom
-            </textPath>
-          </text>
-        </g>
-
-        {/* Fixed lubber line — direction you are facing */}
-        <polygon
-          points={`${cx},${cy - outerR - 6} ${cx - 5},${cy - outerR + 8} ${cx + 5},${cy - outerR + 8}`}
-          fill={live ? "#F0EFEA" : "#5A625C"}
-          opacity={live ? 0.95 : 0.55}
-        />
-
-        {/* Hub stays screen-upright */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={hubR}
-          fill={`url(#hub-${uid})`}
-          stroke="#3A423D"
-          strokeWidth="1.5"
-        />
-        <text
-          x={cx}
-          y={cy - 1}
-          textAnchor="middle"
-          fill="#F0EFEA"
-          fontSize="16"
-          fontWeight="700"
-          className="tabular-nums"
-        >
-          Lv {level}
-        </text>
-        <text
-          x={cx}
-          y={cy + 15}
-          textAnchor="middle"
-          fill="#9EA7A0"
-          fontSize="10"
-          fontWeight="500"
-          className="tabular-nums"
-        >
-          {live ? `${Math.round(heading)}°` : `${streakDays}d streak`}
-        </text>
-      </svg>
+        </svg>
+      </button>
+      {!live && (
+        <p className="text-center text-[12px] text-ink-muted -mt-1">
+          {asking ? "Allow motion to align…" : "Tap compass to align with north"}
+        </p>
+      )}
     </div>
   );
 }

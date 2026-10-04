@@ -6,7 +6,7 @@ import Link from "next/link";
 import CompassInstrument from "@/components/compass/CompassInstrument";
 import QuestCard from "@/components/quests/QuestCard";
 import GuildGate from "@/components/guild/GuildGate";
-import StreakCalendar from "@/components/streak/StreakCalendar";
+import GoalGate from "@/components/goals/GoalGate";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -14,8 +14,10 @@ import {
   WEEKLY_REROLLS,
   resolveDailyBoard,
 } from "@/lib/questBank";
+import { DEFAULT_QUEST_DIFFICULTY, labelForGoal } from "@/lib/goals";
 import {
   ensureRerollBudget,
+  ensureSharedQuestBank,
   rerollDailyQuestSlot,
   subscribeToGuildSubmissions,
   subscribeToUserSubmissionsToday,
@@ -29,7 +31,6 @@ import {
 import { useFieldConditions } from "@/hooks/useFieldConditions";
 import { weatherHint } from "@/lib/fieldConditions";
 import { GeneratedBankQuest } from "@/lib/generatedQuests";
-import { persistGeneratedQuests } from "@/lib/questRuntime";
 import ActivityFeed from "@/components/guild/ActivityFeed";
 import { buildGuildActivity } from "@/lib/guildActivity";
 import { playSound, armAudioFromGesture } from "@/lib/sounds";
@@ -53,22 +54,15 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!field?.place || field.mood === "unknown") return;
     let cancelled = false;
-    const params = new URLSearchParams({
+    void ensureSharedQuestBank({
       place: field.place,
-      date: todayStr,
+      dateStr: todayStr,
       mood: field.mood,
-      weather: field.weatherLabel,
-      air: field.airLabel,
-    });
-    fetch(`/api/quests/generate?${params}`)
-      .then((r) => r.json())
-      .then((data: { quests?: GeneratedBankQuest[]; source?: string }) => {
-        if (cancelled) return;
-        const quests = data.quests || [];
-        setLocalQuests(quests);
-        if (quests.length > 0) {
-          persistGeneratedQuests(todayStr, field.place!, quests);
-        }
+      weatherLabel: field.weatherLabel,
+      airLabel: field.airLabel,
+    })
+      .then(({ quests }) => {
+        if (!cancelled) setLocalQuests(quests);
       })
       .catch(() => {
         if (!cancelled) setLocalQuests([]);
@@ -95,6 +89,14 @@ export default function DashboardPage() {
     });
   }, [profile?.guildId]);
 
+  const adaptive = useMemo(
+    () => ({
+      goalId: profile?.goalId,
+      difficulty: profile?.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY,
+    }),
+    [profile?.goalId, profile?.questDifficulty],
+  );
+
   const baseQuests = useMemo(() => {
     if (!profile?.id) return [];
     return resolveDailyBoard(
@@ -104,6 +106,7 @@ export default function DashboardPage() {
       localQuests,
       profile.dailyQuestDate,
       profile.dailyQuestIds,
+      adaptive,
     );
   }, [
     todayStr,
@@ -112,6 +115,7 @@ export default function DashboardPage() {
     profile?.dailyQuestIds,
     weatherMood,
     localQuests,
+    adaptive,
   ]);
 
   useEffect(() => {
@@ -217,7 +221,7 @@ export default function DashboardPage() {
       });
       playSound("soft");
       toast(
-        `Quest swapped · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`,
+        `Easier quest lined up · ${result.remaining} reroll${result.remaining === 1 ? "" : "s"} left`,
       );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Reroll failed.";
@@ -251,6 +255,10 @@ export default function DashboardPage() {
     );
   }
 
+  if (!profile.goalId) {
+    return <GoalGate />;
+  }
+
   if (!profile.guildId) {
     return <GuildGate />;
   }
@@ -258,9 +266,10 @@ export default function DashboardPage() {
   const verifiedCount = questsWithStatus.filter(
     (q) => q.status === "verified",
   ).length;
+  const band = Math.round(profile.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <VerifyHit hit={hit} onDone={() => setHit(null)} />
 
       <CompassInstrument
@@ -269,11 +278,13 @@ export default function DashboardPage() {
         streakDays={profile.streakDays}
       />
 
-      <div>
+      <div className="pt-0.5">
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           Today ({verifiedCount}/3)
         </h2>
         <p className="text-xs text-ink-muted mt-0.5 tabular-nums">
+          {labelForGoal(profile.goalId)} · band {band}/5
+          {" · "}
           Resets in {timeUntilMidnight || "…"}
           {field && field.mood !== "unknown"
             ? ` · ${weatherHint(field.mood, field.airBand)}`
@@ -323,14 +334,6 @@ export default function DashboardPage() {
           Vouch a guildmate&apos;s proof. You get XP too.
         </p>
       </Link>
-
-      {profile.totalVerifiedDeeds > 0 && (
-        <StreakCalendar
-          streakDays={profile.streakDays}
-          activeDates={profile.activeDates}
-          lastActiveDate={profile.lastActiveDate}
-        />
-      )}
     </div>
   );
 }

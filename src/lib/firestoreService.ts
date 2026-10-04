@@ -14,7 +14,7 @@ import {
   Timestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry, Quest, GuildMemberProfile } from '@/types';
+import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry, Quest, GuildMemberProfile, GoalId } from '@/types';
 import {
   applyAttributeXp,
   formatLocalDate,
@@ -29,12 +29,23 @@ import {
 } from '@/lib/attributes';
 import {
   WEEKLY_REROLLS,
+  difficultyOfQuestId,
   getDailyQuestsForUser,
   pickRerollQuest,
   resolveDailyBoard,
 } from '@/lib/questBank';
+import {
+  DEFAULT_QUEST_DIFFICULTY,
+  difficultyAfterComplete,
+  difficultyAfterSkip,
+} from '@/lib/goals';
 import { WeatherMood } from '@/lib/fieldConditions';
-import { GeneratedBankQuest } from '@/lib/generatedQuests';
+import {
+  GeneratedBankQuest,
+  placeCacheKey,
+  validateGeneratedQuests,
+} from '@/lib/generatedQuests';
+import { persistSharedQuestBank } from '@/lib/questRuntime';
 import { toMillis } from '@/lib/presence';
 
 function normalizeSubmission(raw: Record<string, unknown>): PeerSubmission {
@@ -317,6 +328,12 @@ export async function vouchForSubmission(
         newStreak = 1;
       }
 
+      const questDiff = difficultyOfQuestId(sub.questId);
+      const nextBand = difficultyAfterComplete(
+        author.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY,
+        questDiff,
+      );
+
       await updateDoc(authorRef, {
         attributes: gained.attributes,
         totalVerifiedDeeds: increment(1),
@@ -325,6 +342,7 @@ export async function vouchForSubmission(
         activeDates: arrayUnion(today),
         level: gained.overallLevel,
         title: gained.title,
+        questDifficulty: nextBand,
       });
     }
   }
@@ -485,9 +503,20 @@ export async function ensureRerollBudget(userId: string, profile: UserProfile) {
   });
 }
 
+/** Persist primary goal and reset adaptive band for a fresh start on that path. */
+export async function saveUserGoal(userId: string, goalId: GoalId) {
+  await updateDoc(doc(db, 'users', userId), {
+    goalId,
+    questDifficulty: DEFAULT_QUEST_DIFFICULTY,
+    // Clear today's board so the next load adapts to the new goal.
+    dailyQuestDate: '',
+    dailyQuestIds: [],
+  });
+}
+
 /**
  * Swap one pending daily quest. Costs 1 weekly reroll.
- * Saves the full 3-slot board on first reroll of the day.
+ * Eases the difficulty band and picks an easier on-goal replacement.
  */
 export async function rerollDailyQuestSlot(opts: {
   userId: string;
@@ -518,6 +547,11 @@ export async function rerollDailyQuestSlot(opts: {
     throw new Error('No rerolls left this week.');
   }
 
+  const adaptive = {
+    goalId: profile.goalId,
+    difficulty: profile.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY,
+  };
+
   const board = resolveDailyBoard(
     today,
     userId,
@@ -525,6 +559,7 @@ export async function rerollDailyQuestSlot(opts: {
     localQuests,
     profile.dailyQuestDate,
     profile.dailyQuestIds,
+    adaptive,
   );
 
   const current = board[slotIndex];
@@ -533,6 +568,7 @@ export async function rerollDailyQuestSlot(opts: {
     throw new Error('That quest already has a submission.');
   }
 
+  const eased = difficultyAfterSkip(adaptive.difficulty);
   const currentIds = board.map((q) => q.id);
   const salt = WEEKLY_REROLLS - remaining + 1;
   const replacement = pickRerollQuest(
@@ -542,6 +578,8 @@ export async function rerollDailyQuestSlot(opts: {
     currentIds,
     slotIndex,
     salt,
+    { goalId: adaptive.goalId, difficulty: eased },
+    localQuests,
   );
 
   const nextIds = [...currentIds];
@@ -553,6 +591,7 @@ export async function rerollDailyQuestSlot(opts: {
     dailyQuestIds: nextIds,
     rerollWeekStart: weekStart,
     rerollsRemaining: remaining,
+    questDifficulty: eased,
   });
 
   return { questIds: nextIds, remaining, replacement };
@@ -566,4 +605,108 @@ export function previewDailyQuestIds(
   localQuests: GeneratedBankQuest[] = [],
 ): string[] {
   return getDailyQuestsForUser(dateStr, userId, mood, localQuests).map((q) => q.id);
+}
+
+type SharedBankDoc = {
+  cacheId: string;
+  dateStr: string;
+  place: string;
+  mood: WeatherMood;
+  quests: GeneratedBankQuest[];
+  source: string;
+  createdAtMs: number;
+};
+
+/**
+ * Load or create the shared Gemini quest bank for this place/day/weather.
+ * Friends in the same conditions draw from the same pool; our picker chooses
+ * each person's 3 adaptively.
+ */
+export async function ensureSharedQuestBank(opts: {
+  place: string;
+  dateStr: string;
+  mood: WeatherMood;
+  weatherLabel: string;
+  airLabel: string;
+}): Promise<{ quests: GeneratedBankQuest[]; source: string; cacheId: string }> {
+  const { place, dateStr, mood, weatherLabel, airLabel } = opts;
+  const cacheId = placeCacheKey(place, dateStr, mood);
+  const ref = doc(db, 'questBanks', cacheId);
+
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    const data = existing.data() as SharedBankDoc;
+    const quests = validateGeneratedQuests(data.quests || []);
+    if (quests.length >= 4) {
+      persistSharedQuestBank({ cacheId, dateStr, place, mood, quests });
+      return { quests, source: 'shared', cacheId };
+    }
+  }
+
+  const params = new URLSearchParams({
+    place,
+    date: dateStr,
+    mood,
+    weather: weatherLabel,
+    air: airLabel,
+  });
+  const res = await fetch(`/api/quests/generate?${params}`);
+  const payload = (await res.json()) as {
+    quests?: GeneratedBankQuest[];
+    source?: string;
+  };
+  const quests = validateGeneratedQuests(payload.quests || []);
+  if (quests.length < 4) {
+    return {
+      quests: [],
+      source: payload.source || 'empty',
+      cacheId,
+    };
+  }
+
+  // First writer wins — if another client created it while we generated, use theirs.
+  const raced = await getDoc(ref);
+  if (raced.exists()) {
+    const data = raced.data() as SharedBankDoc;
+    const shared = validateGeneratedQuests(data.quests || []);
+    if (shared.length >= 4) {
+      persistSharedQuestBank({
+        cacheId,
+        dateStr,
+        place,
+        mood,
+        quests: shared,
+      });
+      return { quests: shared, source: 'shared', cacheId };
+    }
+  }
+
+  try {
+    await setDoc(ref, {
+      cacheId,
+      dateStr,
+      place,
+      mood,
+      quests,
+      source: payload.source || 'gemini',
+      createdAtMs: Date.now(),
+    } satisfies SharedBankDoc);
+  } catch {
+    const after = await getDoc(ref);
+    if (after.exists()) {
+      const data = after.data() as SharedBankDoc;
+      const shared = Array.isArray(data.quests) ? data.quests : quests;
+      persistSharedQuestBank({
+        cacheId,
+        dateStr,
+        place,
+        mood,
+        quests: shared,
+      });
+      return { quests: shared, source: 'shared', cacheId };
+    }
+  }
+
+  persistSharedQuestBank({ cacheId, dateStr, place, mood, quests });
+  return { quests, source: payload.source || 'gemini', cacheId };
 }

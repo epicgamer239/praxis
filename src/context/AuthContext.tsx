@@ -57,6 +57,8 @@ function buildDefaultProfile(
     rerollsRemaining: 3,
     dailyQuestDate: "",
     dailyQuestIds: [],
+    goalId: null,
+    questDifficulty: 2,
   };
 }
 
