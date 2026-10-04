@@ -9,7 +9,7 @@ const listeners = new Set<HeadingListener>();
 let latest: number | null = null;
 let listening = false;
 let enabled = false;
-/** True after we've unlocked sensors for this page load. */
+/** True after sensors unlocked for this page load. */
 let sessionArmed = false;
 
 type OrientationPayload = DeviceOrientationEvent & {
@@ -97,62 +97,63 @@ async function requestOrientationPermission(): Promise<boolean> {
   }
 }
 
-/**
- * Resume compass for a user who already opted in (localStorage).
- * Does not call requestPermission — avoids the iOS dialog on every launch.
- * Call from a user gesture so sensors are allowed to start where required.
- */
-export function wakeHeadingIfGranted(): boolean {
-  if (typeof window === "undefined") return false;
-  if (!readEnabled()) return false;
+function markArmed() {
   enabled = true;
   sessionArmed = true;
   attachListeners();
-  return true;
 }
 
 /**
- * First-time (or retry) opt-in. May show the iOS motion dialog.
- * Call only from an explicit compass tap — not from splash.
+ * Call from splash / enter gesture when the user already opted in before.
+ * On iOS this must call requestPermission() each page load to start sensors —
+ * if already allowed, that returns "granted" with no dialog.
+ * First-time users: no-op (they opt in via the compass tap).
  */
-export async function enableDeviceHeading(): Promise<boolean> {
+export async function armDeviceHeading(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-
-  // Already armed this session — just ensure listeners.
-  if (sessionArmed && listening && readEnabled()) {
+  if (!readEnabled()) return false;
+  if (sessionArmed && listening) {
     enabled = true;
     return true;
   }
 
-  // Returning user: wake without re-prompting.
-  if (readEnabled()) {
-    wakeHeadingIfGranted();
-    // If iOS still needs an explicit grant call for this document and events
-    // never arrive, a later compass tap can retry via force path below.
+  const ok = await requestOrientationPermission();
+  if (!ok) return false;
+  writeEnabled(true);
+  markArmed();
+  return true;
+}
+
+/**
+ * First-time opt-in or manual retry from the compass.
+ * May show the iOS motion dialog only if not already granted.
+ */
+export async function enableDeviceHeading(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+
+  if (sessionArmed && listening) {
+    enabled = true;
     return true;
   }
 
   const ok = await requestOrientationPermission();
   if (!ok) return false;
-  enabled = true;
-  sessionArmed = true;
   writeEnabled(true);
-  attachListeners();
+  markArmed();
   return true;
 }
 
-/**
- * Force permission prompt (compass tap when wake didn't produce events).
- */
-export async function requestHeadingPermission(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  const ok = await requestOrientationPermission();
-  if (!ok) return false;
-  enabled = true;
-  sessionArmed = true;
-  writeEnabled(true);
-  attachListeners();
+/** @deprecated use armDeviceHeading */
+export function wakeHeadingIfGranted(): boolean {
+  if (!readEnabled()) return false;
+  // Sync attach only — prefer armDeviceHeading from a gesture for iOS.
+  markArmed();
   return true;
+}
+
+/** @deprecated use enableDeviceHeading */
+export async function requestHeadingPermission(): Promise<boolean> {
+  return enableDeviceHeading();
 }
 
 export function getDeviceHeading(): number | null {
@@ -166,8 +167,11 @@ export function isDeviceHeadingEnabled(): boolean {
 export function subscribeDeviceHeading(fn: HeadingListener): () => void {
   listeners.add(fn);
   fn(latest);
-  // Silent resume if they opted in before — no permission API.
-  wakeHeadingIfGranted();
+  // Listeners only — iOS still needs armDeviceHeading from a gesture each load.
+  if (readEnabled()) {
+    enabled = true;
+    attachListeners();
+  }
   return () => {
     listeners.delete(fn);
   };

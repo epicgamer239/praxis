@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/navigation/BottomNav";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { unlockAudio } from "@/lib/sounds";
-import { wakeHeadingIfGranted } from "@/lib/deviceHeading";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
+import { primeFieldAccess } from "@/lib/fieldConditions";
 import SplashScreen from "@/components/fx/SplashScreen";
 
 const OPEN_ROUTES = new Set(["/welcome", "/login", "/signup"]);
@@ -39,7 +40,6 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     if (!entered) return;
     const onGesture = () => {
       void unlockAudio();
-      wakeHeadingIfGranted();
     };
     window.addEventListener("pointerdown", onGesture);
     window.addEventListener("touchstart", onGesture, { passive: true });
@@ -65,8 +65,10 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+    // Backup if splash already fired these — safe no-ops when armed/cached.
     void unlockAudio();
-    wakeHeadingIfGranted();
+    void enableDeviceHeading();
+    primeFieldAccess();
     setEntered(true);
   };
 

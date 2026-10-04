@@ -3,7 +3,8 @@
 
 import React, { useState } from "react";
 import { unlockAndPlay } from "@/lib/sounds";
-import { wakeHeadingIfGranted } from "@/lib/deviceHeading";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
+import { primeFieldAccess } from "@/lib/fieldConditions";
 
 /** Leaf only — no app-icon box. */
 function MagicalLeaf({ entering }: { entering: boolean }) {
@@ -110,8 +111,9 @@ export default function SplashScreen({
   const handleEnter = () => {
     if (!needsTap || entering) return;
     setEntering(true);
-    // Resume only if they already opted in — never re-prompt on launch.
-    wakeHeadingIfGranted();
+    // Same tap: motion + location (iOS needs a gesture for orientation).
+    void enableDeviceHeading();
+    primeFieldAccess();
     unlockAndPlay("boot");
     window.setTimeout(() => onEnter?.(), ENTER_HOLD_MS);
   };

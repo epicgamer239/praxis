@@ -4,13 +4,7 @@
 import React, { useId, useMemo, useState } from "react";
 import { UserProfile } from "@/types";
 import { useDeviceHeading } from "@/hooks/useDeviceHeading";
-import {
-  enableDeviceHeading,
-  getDeviceHeading,
-  isDeviceHeadingEnabled,
-  requestHeadingPermission,
-  wakeHeadingIfGranted,
-} from "@/lib/deviceHeading";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
 
 interface CompassInstrumentProps {
   attributes: UserProfile["attributes"];
@@ -36,6 +30,36 @@ function polar(cx: number, cy: number, r: number, bearingDeg: number) {
     x: cx + r * Math.sin(rad),
     y: cy - r * Math.cos(rad),
   };
+}
+
+function normDeg(deg: number) {
+  return ((deg % 360) + 360) % 360;
+}
+
+/** Place upright text outside the ring, anchored away from center. */
+function outwardLabel(
+  cx: number,
+  cy: number,
+  r: number,
+  screenBearing: number,
+) {
+  const a = normDeg(screenBearing);
+  const p = polar(cx, cy, r, a);
+  let anchor: "middle" | "start" | "end" = "middle";
+  let dx = 0;
+  let dy = 0;
+  if (a > 50 && a < 130) {
+    anchor = "start";
+    dx = 5;
+  } else if (a > 230 && a < 310) {
+    anchor = "end";
+    dx = -5;
+  } else if (a >= 130 && a <= 230) {
+    dy = 7;
+  } else {
+    dy = -5;
+  }
+  return { x: p.x + dx, y: p.y + dy, anchor };
 }
 
 const CARDINALS = [
@@ -87,7 +111,8 @@ export default function CompassInstrument({
     const hubR = 40;
     const minR = hubR + 20;
     const maxR = 108;
-    const wordR = outerR + 22;
+    const letterR = outerR - 18;
+    const wordR = outerR + 28;
 
     const radii = {
       neighborhood: effRadius(attributes.neighborhood, minR, maxR),
@@ -126,52 +151,29 @@ export default function CompassInstrument({
       ticks.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, major });
     }
 
-    const letters = CARDINALS.map((c) => ({
-      ...c,
-      ...polar(cx, cy, outerR - 18, c.bearing),
-    }));
-
-    const words = CARDINALS.map((c) => {
-      const p = polar(cx, cy, wordR, c.bearing);
-      // Keep labels readable: slight offset so they sit outside cleanly
-      let anchor: "middle" | "start" | "end" = "middle";
-      let dx = 0;
-      let dy = 0;
-      if (c.bearing === 90) {
-        anchor = "start";
-        dx = 2;
-      } else if (c.bearing === 270) {
-        anchor = "end";
-        dx = -2;
-      } else if (c.bearing === 0) {
-        dy = -2;
-      } else if (c.bearing === 180) {
-        dy = 4;
-      }
-      return { ...c, x: p.x + dx, y: p.y + dy, anchor };
-    });
-
-    return { cx, cy, outerR, hubR, petals, ticks, letters, words };
+    return { cx, cy, outerR, hubR, letterR, wordR, petals, ticks };
   }, [attributes]);
 
-  const { cx, cy, outerR, hubR, petals, ticks, letters, words } = geometry;
+  const { cx, cy, outerR, hubR, letterR, wordR, petals, ticks } = geometry;
+
+  // Labels track cardinals in screen space so they stay upright and outside the ring
+  const labels = CARDINALS.map((c) => {
+    const screenBearing = c.bearing + rotation;
+    const letterAt = polar(cx, cy, letterR, normDeg(screenBearing));
+    return {
+      key: c.key,
+      letter: c.letter,
+      word: c.word,
+      color: c.color,
+      letterPos: { x: letterAt.x, y: letterAt.y, anchor: "middle" as const },
+      wordPos: outwardLabel(cx, cy, wordR, screenBearing),
+    };
+  });
 
   const onActivate = () => {
     if (live) return;
     setAsking(true);
-    const run = async () => {
-      if (isDeviceHeadingEnabled()) {
-        wakeHeadingIfGranted();
-        // If sensors still silent after a prior grant, force the iOS unlock once.
-        await new Promise((r) => window.setTimeout(r, 400));
-        if (getDeviceHeading() == null) {
-          await requestHeadingPermission();
-        }
-        return;
-      }
-      await enableDeviceHeading();
-    };
-    void run().finally(() => setAsking(false));
+    void enableDeviceHeading().finally(() => setAsking(false));
   };
 
   return (
@@ -187,7 +189,7 @@ export default function CompassInstrument({
         }
       >
         <svg
-          viewBox="-12 -8 384 376"
+          viewBox="-28 -20 416 400"
           className="w-full h-full"
           role="img"
           aria-hidden
@@ -256,13 +258,15 @@ export default function CompassInstrument({
                 />
               ))}
             </g>
+          </g>
 
-            {letters.map((l) => (
+          {/* Labels stay screen-upright; anchor outward so long words never enter the ring */}
+          {labels.map((l) => (
+            <g key={l.key}>
               <text
-                key={l.letter}
-                x={l.x}
-                y={l.y}
-                textAnchor="middle"
+                x={l.letterPos.x}
+                y={l.letterPos.y}
+                textAnchor={l.letterPos.anchor}
                 dominantBaseline="middle"
                 fill={l.color}
                 fontSize="20"
@@ -270,26 +274,20 @@ export default function CompassInstrument({
               >
                 {l.letter}
               </text>
-            ))}
-
-            {/* Words ride with their cardinal but counter-rotate to stay upright */}
-            {words.map((w) => (
               <text
-                key={w.word}
-                x={w.x}
-                y={w.y}
-                textAnchor={w.anchor}
+                x={l.wordPos.x}
+                y={l.wordPos.y}
+                textAnchor={l.wordPos.anchor}
                 dominantBaseline="middle"
-                fill={w.color}
+                fill={l.color}
                 fontSize="11"
                 fontWeight="500"
                 opacity="0.72"
-                transform={`rotate(${(-rotation).toFixed(2)} ${w.x} ${w.y})`}
               >
-                {w.word}
+                {l.word}
               </text>
-            ))}
-          </g>
+            </g>
+          ))}
 
           {/* Facing mark + hub stay screen-fixed */}
           <polygon
@@ -330,9 +328,9 @@ export default function CompassInstrument({
           </text>
         </svg>
       </button>
-      {!live && (
+      {asking && !live && (
         <p className="text-center text-[11px] text-ink-muted mt-0.5">
-          {asking ? "Allow motion…" : "Tap to align"}
+          Allow motion…
         </p>
       )}
     </div>

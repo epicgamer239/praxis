@@ -210,6 +210,11 @@ async function fetchFieldForCoords(
   return (await res.json()) as FieldConditions;
 }
 
+/** Kick off location + weather from a user gesture (e.g. Tap to enter). */
+export function primeFieldAccess(): void {
+  void fetchFieldConditions();
+}
+
 /** Client entry: geolocate (when needed), then hit our field aggregator API. */
 export async function fetchFieldConditions(): Promise<FieldConditions> {
   const cached = readFieldCache();

@@ -244,7 +244,9 @@ export default function ProfilePage() {
       <div className="space-y-3 pt-2 border-t border-border-subtle">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-medium text-ink-secondary">Goal</h3>
-          <p className="text-xs text-ink-muted tabular-nums">Band {band}/5</p>
+          <p className="text-xs text-ink-muted tabular-nums">
+            Difficulty band {band}/5
+          </p>
         </div>
         <p className="text-sm text-ink-secondary leading-relaxed">
           Quests adapt to{" "}
