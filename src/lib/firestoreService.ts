@@ -17,7 +17,9 @@ import {
 import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry, Quest, GuildMemberProfile, GoalId } from '@/types';
 import {
   applyAttributeXp,
+  computeOverallLevelFromAttributes,
   formatLocalDate,
+  getTitleForLevel,
   getWeekStart,
   totalEarnedXp,
   VOUCH_BONUS_XP,
@@ -47,6 +49,10 @@ import {
 } from '@/lib/generatedQuests';
 import { persistSharedQuestBank } from '@/lib/questRuntime';
 import { toMillis } from '@/lib/presence';
+import {
+  BASE_REQUIRED_VOUCHES,
+  requiredVouchesFromNetwork,
+} from '@/lib/vouchNetwork';
 
 function normalizeSubmission(raw: Record<string, unknown>): PeerSubmission {
   const attribute = normalizeAttributeKey(raw.attribute as string);
@@ -68,6 +74,50 @@ function normalizeSubmission(raw: Record<string, unknown>): PeerSubmission {
     attribute,
     attributeLabel: needsNewLabel ? labelMap[attribute] : legacyLabel,
   };
+}
+
+async function guildMemberCount(guildId: string): Promise<number> {
+  const snap = await getDoc(doc(db, 'guilds', guildId));
+  if (!snap.exists()) return 2;
+  const ids = (snap.data() as Guild).memberIds;
+  return Array.isArray(ids) ? ids.length : 2;
+}
+
+/** Recent verified deeds for an author — used by the large-guild vouch net. */
+async function recentVerifiedVouchHistory(
+  authorId: string,
+  limit = 5,
+): Promise<{ vouchedBy: string[] }[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'submissions'),
+      where('userId', '==', authorId),
+      where('status', '==', 'verified'),
+    ),
+  );
+  const list = snap.docs.map((d) =>
+    normalizeSubmission(d.data() as Record<string, unknown>),
+  );
+  list.sort(
+    (a, b) =>
+      submissionMillis(b.verifiedAt || b.createdAt) -
+      submissionMillis(a.verifiedAt || a.createdAt),
+  );
+  return list.slice(0, limit).map((s) => ({ vouchedBy: s.vouchedBy || [] }));
+}
+
+async function resolveRequiredVouches(
+  guildId: string,
+  authorId: string,
+  currentVouchers: string[] = [],
+): Promise<number> {
+  const memberCount = await guildMemberCount(guildId);
+  const recentVerified = await recentVerifiedVouchHistory(authorId);
+  return requiredVouchesFromNetwork({
+    memberCount,
+    recentVerified,
+    currentVouchers,
+  });
 }
 
 // 1. Join Guild by 5-character Code (or full Guild ID)
@@ -172,6 +222,10 @@ export async function submitProofOfWork(params: {
 
   const submissionId = `sub_${Date.now()}`;
   const submissionRef = doc(db, 'submissions', submissionId);
+  const requiredVouches = await resolveRequiredVouches(
+    params.guildId,
+    params.userId,
+  );
 
   const newSubmission: PeerSubmission = {
     id: submissionId,
@@ -187,10 +241,11 @@ export async function submitProofOfWork(params: {
     photoHash: params.photoHash,
     fieldNote: params.fieldNote,
     vouchesReceived: 0,
-    requiredVouches: 2,
+    requiredVouches,
     vouchedBy: [],
     vouchedByNames: [],
     status: 'awaiting_vouches',
+    rewardsClaimed: false,
     createdAt: Timestamp.now(),
   };
 
@@ -263,7 +318,8 @@ export function subscribeToGuildSubmissions(guildId: string, callback: (subs: Pe
   });
 }
 
-// 7. Anti-Cheat Vouch Action & Streak Calculation
+// 7. Anti-Cheat Vouch Action
+// Author XP/streak are claimed by the author (self-write) — rules block cross-user profile updates.
 export async function vouchForSubmission(
   submissionId: string,
   voucherId: string,
@@ -286,66 +342,30 @@ export async function vouchForSubmission(
   }
 
   const updatedVouchers = [...sub.vouchedBy, voucherId];
-  const updatedVoucherNames = [...sub.vouchedByNames, voucherName];
+  const updatedVoucherNames = [...(sub.vouchedByNames || []), voucherName];
   const newVouchCount = updatedVouchers.length;
-  const isNowVerified = newVouchCount >= sub.requiredVouches;
+  const requiredVouches = await resolveRequiredVouches(
+    sub.guildId,
+    sub.userId,
+    updatedVouchers,
+  );
+  // Never drop below what the submission already asked for.
+  const needed = Math.max(
+    requiredVouches,
+    sub.requiredVouches || BASE_REQUIRED_VOUCHES,
+  );
+  const isNowVerified = newVouchCount >= needed;
 
   await updateDoc(subRef, {
-    attribute: sub.attribute,
-    attributeLabel: sub.attributeLabel,
+    requiredVouches: needed,
     vouchedBy: updatedVouchers,
     vouchedByNames: updatedVoucherNames,
     vouchesReceived: newVouchCount,
     status: isNowVerified ? 'verified' : 'awaiting_vouches',
-    ...(isNowVerified ? { verifiedAt: Timestamp.now() } : {}),
+    ...(isNowVerified
+      ? { verifiedAt: Timestamp.now(), rewardsClaimed: false }
+      : {}),
   });
-
-  if (isNowVerified) {
-    const authorRef = doc(db, 'users', sub.userId);
-    const authorSnap = await getDoc(authorRef);
-
-    if (authorSnap.exists()) {
-      const authorRaw = authorSnap.data() as UserProfile & {
-        attributes?: Record<string, unknown>;
-      };
-      const author: UserProfile = {
-        ...authorRaw,
-        attributes: normalizeAttributes(authorRaw.attributes),
-      };
-      const gained = applyAttributeXp(author.attributes, sub.attribute, sub.xpReward, true);
-
-      const today = formatLocalDate();
-      const yesterdayDate = new Date();
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterday = formatLocalDate(yesterdayDate);
-
-      let newStreak = author.streakDays || 0;
-      if (author.lastActiveDate === today) {
-        newStreak = Math.max(newStreak, 1);
-      } else if (author.lastActiveDate === yesterday) {
-        newStreak = (newStreak || 0) + 1;
-      } else {
-        newStreak = 1;
-      }
-
-      const questDiff = difficultyOfQuestId(sub.questId);
-      const nextBand = difficultyAfterComplete(
-        author.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY,
-        questDiff,
-      );
-
-      await updateDoc(authorRef, {
-        attributes: gained.attributes,
-        totalVerifiedDeeds: increment(1),
-        streakDays: newStreak,
-        lastActiveDate: today,
-        activeDates: arrayUnion(today),
-        level: gained.overallLevel,
-        title: gained.title,
-        questDifficulty: nextBand,
-      });
-    }
-  }
 
   const voucherRef = doc(db, 'users', voucherId);
   const voucherSnap = await getDoc(voucherRef);
@@ -374,6 +394,115 @@ export async function vouchForSubmission(
     xpReward: sub.xpReward,
     attributeLabel: sub.attributeLabel,
   };
+}
+
+/**
+ * Finalize awaiting proofs that already meet their required vouch count
+ * but never flipped to verified (interrupted write, etc.).
+ */
+export async function reconcileGuildVerifications(guildId: string): Promise<number> {
+  const snap = await getDocs(
+    query(collection(db, 'submissions'), where('guildId', '==', guildId)),
+  );
+  let fixed = 0;
+  for (const d of snap.docs) {
+    const sub = normalizeSubmission(d.data() as Record<string, unknown>);
+    if (sub.status !== 'awaiting_vouches') continue;
+    const needed = sub.requiredVouches || BASE_REQUIRED_VOUCHES;
+    if ((sub.vouchesReceived || 0) < needed) continue;
+    await updateDoc(d.ref, {
+      status: 'verified',
+      verifiedAt: Timestamp.now(),
+      rewardsClaimed: false,
+    });
+    fixed += 1;
+  }
+  return fixed;
+}
+
+/** Author applies XP/streak for verified deeds (must run as the author). */
+export async function claimPendingVerifiedRewards(userId: string): Promise<number> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'submissions'),
+      where('userId', '==', userId),
+      where('status', '==', 'verified'),
+    ),
+  );
+
+  const all = snap.docs.map((d) => ({
+    ref: d.ref,
+    sub: normalizeSubmission(d.data() as Record<string, unknown>),
+  }));
+  const pending = all
+    .filter(({ sub }) => !sub.rewardsClaimed)
+    .sort(
+      (a, b) =>
+        submissionMillis(a.sub.verifiedAt || a.sub.createdAt) -
+        submissionMillis(b.sub.verifiedAt || b.sub.createdAt),
+    );
+
+  const authorRef = doc(db, 'users', userId);
+  const authorSnap = await getDoc(authorRef);
+  if (!authorSnap.exists()) return 0;
+
+  const authorRaw = authorSnap.data() as UserProfile & {
+    attributes?: Record<string, unknown>;
+  };
+  let attributes = normalizeAttributes(authorRaw.attributes);
+  let streakDays = authorRaw.streakDays || 0;
+  let lastActiveDate = authorRaw.lastActiveDate || '';
+  let questDifficulty = authorRaw.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY;
+  const activeDates = new Set(authorRaw.activeDates || []);
+
+  for (const { ref, sub } of pending) {
+    const gained = applyAttributeXp(attributes, sub.attribute, sub.xpReward, true);
+    attributes = gained.attributes;
+
+    const when = new Date(
+      submissionMillis(sub.verifiedAt || sub.createdAt) || Date.now(),
+    );
+    const day = formatLocalDate(when);
+    const yesterdayDate = new Date(when);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = formatLocalDate(yesterdayDate);
+
+    if (lastActiveDate === day) {
+      streakDays = Math.max(streakDays, 1);
+    } else if (lastActiveDate === yesterday) {
+      streakDays = (streakDays || 0) + 1;
+    } else {
+      streakDays = 1;
+    }
+    lastActiveDate = day;
+    activeDates.add(day);
+
+    questDifficulty = difficultyAfterComplete(
+      questDifficulty,
+      difficultyOfQuestId(sub.questId),
+    );
+
+    await updateDoc(ref, { rewardsClaimed: true });
+  }
+
+  const verifiedCount = all.length;
+  if (pending.length > 0) {
+    const level = computeOverallLevelFromAttributes(attributes);
+    await updateDoc(authorRef, {
+      attributes,
+      totalVerifiedDeeds: verifiedCount,
+      streakDays,
+      lastActiveDate,
+      activeDates: Array.from(activeDates),
+      level,
+      title: getTitleForLevel(level),
+      questDifficulty,
+    });
+  } else if ((authorRaw.totalVerifiedDeeds || 0) !== verifiedCount) {
+    await updateDoc(authorRef, { totalVerifiedDeeds: verifiedCount });
+  }
+
+  return pending.length;
 }
 
 // 8. Live Guild Roster Listener

@@ -16,8 +16,10 @@ import {
 } from "@/lib/questBank";
 import { DEFAULT_QUEST_DIFFICULTY, labelForGoal } from "@/lib/goals";
 import {
+  claimPendingVerifiedRewards,
   ensureRerollBudget,
   ensureSharedQuestBank,
+  reconcileGuildVerifications,
   rerollDailyQuestSlot,
   subscribeToGuildSubmissions,
   subscribeToUserSubmissionsToday,
@@ -77,6 +79,9 @@ export default function DashboardPage() {
     void ensureRerollBudget(profile.id, profile).catch(() => {
       /* best-effort */
     });
+    void claimPendingVerifiedRewards(profile.id).catch(() => {
+      /* best-effort author reward claim */
+    });
   }, [profile?.id, profile?.rerollWeekStart, profile?.rerollsRemaining]);
 
   useEffect(() => {
@@ -84,6 +89,9 @@ export default function DashboardPage() {
       setActivity([]);
       return;
     }
+    void reconcileGuildVerifications(profile.guildId).catch(() => {
+      /* best-effort */
+    });
     return subscribeToGuildSubmissions(profile.guildId, (subs) => {
       setActivity(buildGuildActivity(subs, 8));
     });

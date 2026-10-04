@@ -62,7 +62,7 @@ export function buildGuildActivity(
       const left = Math.max(
         0,
         (sub.requiredVouches || 2) - (sub.vouchesReceived || 0),
-      );
+      ); // default 2 matches BASE_REQUIRED_VOUCHES
       items.push({
         id: `submitted-${sub.id}`,
         atMs,

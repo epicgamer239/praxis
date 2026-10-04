@@ -94,8 +94,29 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.guildId == resource.data.guildId
         && request.resource.data.id == resource.data.id
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['vouchedBy', 'vouchedByNames', 'vouchesReceived', 'status', 'verifiedAt']);
+        && (
+          // Guildmate vouch / verify path
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'vouchedBy',
+              'vouchedByNames',
+              'vouchesReceived',
+              'requiredVouches',
+              'status',
+              'verifiedAt',
+              'rewardsClaimed',
+              'attribute',
+              'attributeLabel'
+            ])
+          ||
+          // Author claims XP after verification
+          (
+            request.auth.uid == resource.data.userId
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['rewardsClaimed'])
+            && request.resource.data.rewardsClaimed == true
+          )
+        );
       allow delete: if false;
     }
 

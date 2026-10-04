@@ -5,9 +5,9 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import StreakCalendar from "@/components/streak/StreakCalendar";
 import {
+  claimPendingVerifiedRewards,
   saveUserGoal,
   subscribeToUserVerifiedDeeds,
-  syncVerifiedDeedCount,
 } from "@/lib/firestoreService";
 import { formatRelativeTime } from "@/lib/progression";
 import {
@@ -54,14 +54,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!profile?.id) return;
-    const live = verifiedDeeds.length;
-    if (live === 0) return;
-    if ((profile.totalVerifiedDeeds || 0) !== live) {
-      void syncVerifiedDeedCount(profile.id, live).catch(() => {
-        /* best-effort */
-      });
-    }
-  }, [profile?.id, profile?.totalVerifiedDeeds, verifiedDeeds.length]);
+    void claimPendingVerifiedRewards(profile.id).catch(() => {
+      /* best-effort */
+    });
+  }, [profile?.id, verifiedDeeds.length]);
 
   if (loading || !profile) {
     return (

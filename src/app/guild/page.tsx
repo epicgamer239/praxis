@@ -8,6 +8,7 @@ import {
   subscribeToGuild,
   subscribeToGuildMembers,
   membersToLeaderboard,
+  reconcileGuildVerifications,
 } from "@/lib/firestoreService";
 import {
   PeerSubmission,
@@ -61,6 +62,10 @@ export default function GuildPage() {
 
     const unsubSubs = subscribeToGuildSubmissions(profile.guildId, (data) => {
       setSubmissions(data);
+    });
+
+    void reconcileGuildVerifications(profile.guildId).catch(() => {
+      /* best-effort */
     });
 
     return () => {

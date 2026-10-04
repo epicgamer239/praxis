@@ -94,6 +94,8 @@ export interface PeerSubmission {
   status: 'awaiting_vouches' | 'verified';
   createdAt: any;
   verifiedAt?: any;
+  /** Author self-claimed XP/streak after verification (rules block cross-user writes). */
+  rewardsClaimed?: boolean;
 }
 
 export interface LeaderboardEntry {
