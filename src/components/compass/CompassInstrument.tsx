@@ -4,7 +4,13 @@
 import React, { useId, useMemo, useState } from "react";
 import { UserProfile } from "@/types";
 import { useDeviceHeading } from "@/hooks/useDeviceHeading";
-import { enableDeviceHeading } from "@/lib/deviceHeading";
+import {
+  enableDeviceHeading,
+  getDeviceHeading,
+  isDeviceHeadingEnabled,
+  requestHeadingPermission,
+  wakeHeadingIfGranted,
+} from "@/lib/deviceHeading";
 
 interface CompassInstrumentProps {
   attributes: UserProfile["attributes"];
@@ -153,7 +159,19 @@ export default function CompassInstrument({
   const onActivate = () => {
     if (live) return;
     setAsking(true);
-    void enableDeviceHeading().finally(() => setAsking(false));
+    const run = async () => {
+      if (isDeviceHeadingEnabled()) {
+        wakeHeadingIfGranted();
+        // If sensors still silent after a prior grant, force the iOS unlock once.
+        await new Promise((r) => window.setTimeout(r, 400));
+        if (getDeviceHeading() == null) {
+          await requestHeadingPermission();
+        }
+        return;
+      }
+      await enableDeviceHeading();
+    };
+    void run().finally(() => setAsking(false));
   };
 
   return (
