@@ -14,6 +14,7 @@ import { ATTRIBUTE_TEXT, cn } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { armAudioFromGesture } from "@/lib/sounds";
+import { useLevelUpCelebration } from "@/hooks/useLevelUpCelebration";
 
 function leftToVerify(sub: PeerSubmission): number {
   return Math.max(0, (sub.requiredVouches || 2) - (sub.vouchesReceived || 0));
@@ -123,6 +124,7 @@ export default function VerifyPage() {
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<PeerSubmission[]>([]);
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
+  useLevelUpCelebration(setHit);
   const [inspectedPhoto, setInspectedPhoto] = useState<{
     url: string;
     title: string;

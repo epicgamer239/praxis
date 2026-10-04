@@ -52,6 +52,7 @@ export default function GuildGate() {
           </h2>
           <p className="text-sm text-ink-secondary mt-2 leading-relaxed">
             Praxis needs a private circle of friends to verify real-world deeds.
+            Your level and skills stay with you if you switch guilds later.
           </p>
         </div>
 

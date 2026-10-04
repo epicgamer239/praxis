@@ -39,7 +39,6 @@ service cloud.firestore {
         && data.inviteCode.size() == 5
         && data.ownerId is string
         && data.memberIds is list
-        && data.memberIds.size() > 0
         && data.memberIds.size() < 50;
     }
 
@@ -76,10 +75,15 @@ service cloud.firestore {
       allow update: if signedIn()
         && isValidGuild(request.resource.data)
         && request.resource.data.id == resource.data.id
-        && request.resource.data.ownerId == resource.data.ownerId
         && (
+          // Owner may edit guild fields (incl. transfer ownerId on leave)
           resource.data.ownerId == request.auth.uid
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+          ||
+          // Anyone may only add/remove themselves via memberIds
+          (
+            request.resource.data.ownerId == resource.data.ownerId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+          )
         );
       allow delete: if false;
     }

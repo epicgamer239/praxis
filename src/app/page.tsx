@@ -36,6 +36,7 @@ import { GeneratedBankQuest } from "@/lib/generatedQuests";
 import ActivityFeed from "@/components/guild/ActivityFeed";
 import { buildGuildActivity } from "@/lib/guildActivity";
 import { playSound, armAudioFromGesture } from "@/lib/sounds";
+import { useLevelUpCelebration } from "@/hooks/useLevelUpCelebration";
 
 export default function DashboardPage() {
   const { profile, loading, user } = useAuth();
@@ -48,7 +49,7 @@ export default function DashboardPage() {
   const [hit, setHit] = useState<VerifyHitPayload | null>(null);
   const [rerollingSlot, setRerollingSlot] = useState<number | null>(null);
   const seenVerified = useRef<Set<string> | null>(null);
-  const lastLevel = useRef<number | null>(null);
+  useLevelUpCelebration(setHit);
 
   const todayStr = useMemo(() => formatLocalDate(), []);
   const weatherMood = field?.mood || "unknown";
@@ -163,7 +164,9 @@ export default function DashboardPage() {
         for (const sub of subs) {
           if (sub.status === "verified" && !seenVerified.current.has(sub.id)) {
             seenVerified.current.add(sub.id);
-            window.setTimeout(() => {
+            void claimPendingVerifiedRewards(profile.id).then((result) => {
+              // Level-up uses the grand bar animation via useLevelUpCelebration.
+              if (result.leveledUp) return;
               setHit((current) =>
                 current?.kind === "level"
                   ? current
@@ -175,7 +178,7 @@ export default function DashboardPage() {
                       kind: "xp",
                     },
               );
-            }, 450);
+            });
             break;
           }
         }
@@ -238,24 +241,6 @@ export default function DashboardPage() {
       setRerollingSlot(null);
     }
   };
-
-  useEffect(() => {
-    if (!profile) return;
-    if (lastLevel.current === null) {
-      lastLevel.current = profile.level;
-      return;
-    }
-    if (profile.level > lastLevel.current) {
-      lastLevel.current = profile.level;
-      setHit({
-        title: "Level up",
-        body: profile.title,
-        xp: profile.level,
-        xpLabel: "New rank unlocked",
-        kind: "level",
-      });
-    }
-  }, [profile]);
 
   if (loading || !user || !profile) {
     return (

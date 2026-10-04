@@ -13,6 +13,7 @@ import {
   increment,
   Timestamp,
   arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { UserProfile, Guild, PeerSubmission, AttributeType, LeaderboardEntry, Quest, GuildMemberProfile, GoalId } from '@/types';
 import {
@@ -120,6 +121,43 @@ async function resolveRequiredVouches(
   });
 }
 
+/**
+ * Leave the current guild. Attributes, level, streak, and deeds stay on the user.
+ * If the owner leaves and others remain, ownership passes to the next member.
+ */
+export async function leaveGuild(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) {
+    throw new Error('Profile missing.');
+  }
+  const profile = userSnap.data() as UserProfile;
+  const guildId = profile.guildId;
+  if (!guildId) return;
+
+  const guildRef = doc(db, 'guilds', guildId);
+  const guildSnap = await getDoc(guildRef);
+  if (guildSnap.exists()) {
+    const guild = guildSnap.data() as Guild;
+    const remaining = (guild.memberIds || []).filter((id) => id !== userId);
+    if (guild.ownerId === userId && remaining.length > 0) {
+      await updateDoc(guildRef, {
+        memberIds: remaining,
+        ownerId: remaining[0],
+      });
+    } else {
+      await updateDoc(guildRef, {
+        memberIds: arrayRemove(userId),
+      });
+    }
+  }
+
+  await updateDoc(userRef, {
+    guildId: null,
+    guildName: null,
+  });
+}
+
 // 1. Join Guild by 5-character Code (or full Guild ID)
 export async function joinGuildByCode(userId: string, codeOrId: string): Promise<Guild> {
   const clean = codeOrId.trim().toUpperCase();
@@ -128,43 +166,50 @@ export async function joinGuildByCode(userId: string, codeOrId: string): Promise
   const qCode = query(guildsRef, where('inviteCode', '==', clean));
   const snap = await getDocs(qCode);
 
-  if (!snap.empty) {
-    const guildDoc = snap.docs[0];
-    const guildData = guildDoc.data() as Guild;
-
-    await updateDoc(doc(db, 'guilds', guildDoc.id), {
-      memberIds: arrayUnion(userId),
-    });
-
-    await updateDoc(doc(db, 'users', userId), {
-      guildId: guildDoc.id,
-      guildName: guildData.name,
-    });
-
-    return guildData;
+  let guildDoc = !snap.empty ? snap.docs[0] : null;
+  if (!guildDoc) {
+    const directDoc = await getDoc(doc(db, 'guilds', codeOrId.trim()));
+    if (directDoc.exists()) guildDoc = directDoc;
+  }
+  if (!guildDoc) {
+    throw new Error('No guild found with that invite code.');
   }
 
-  const directDoc = await getDoc(doc(db, 'guilds', codeOrId.trim()));
-  if (directDoc.exists()) {
-    const guildData = directDoc.data() as Guild;
+  const guildData = guildDoc.data() as Guild;
+  const userSnap = await getDoc(doc(db, 'users', userId));
+  const currentGuildId = userSnap.exists()
+    ? (userSnap.data() as UserProfile).guildId
+    : null;
 
-    await updateDoc(doc(db, 'guilds', directDoc.id), {
-      memberIds: arrayUnion(userId),
-    });
-
-    await updateDoc(doc(db, 'users', userId), {
-      guildId: directDoc.id,
-      guildName: guildData.name,
-    });
-
+  if (currentGuildId === guildDoc.id) {
     return guildData;
   }
+  if (currentGuildId) {
+    await leaveGuild(userId);
+  }
 
-  throw new Error('No guild found with that invite code.');
+  await updateDoc(doc(db, 'guilds', guildDoc.id), {
+    memberIds: arrayUnion(userId),
+  });
+
+  await updateDoc(doc(db, 'users', userId), {
+    guildId: guildDoc.id,
+    guildName: guildData.name,
+  });
+
+  return guildData;
 }
 
 // 2. Create a New Guild
 export async function createGuild(userId: string, guildName: string): Promise<Guild> {
+  const userSnap = await getDoc(doc(db, 'users', userId));
+  const currentGuildId = userSnap.exists()
+    ? (userSnap.data() as UserProfile).guildId
+    : null;
+  if (currentGuildId) {
+    await leaveGuild(userId);
+  }
+
   const randomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
   const guildId = `guild_${Date.now()}`;
 
@@ -420,8 +465,29 @@ export async function reconcileGuildVerifications(guildId: string): Promise<numb
   return fixed;
 }
 
+export type ClaimRewardsResult = {
+  claimed: number;
+  fromLevel: number;
+  toLevel: number;
+  leveledUp: boolean;
+  title: string;
+};
+
 /** Author applies XP/streak for verified deeds (must run as the author). */
-export async function claimPendingVerifiedRewards(userId: string): Promise<number> {
+export async function claimPendingVerifiedRewards(
+  userId: string,
+): Promise<ClaimRewardsResult> {
+  const empty = (
+    fromLevel: number,
+    title: string,
+  ): ClaimRewardsResult => ({
+    claimed: 0,
+    fromLevel,
+    toLevel: fromLevel,
+    leveledUp: false,
+    title,
+  });
+
   const snap = await getDocs(
     query(
       collection(db, 'submissions'),
@@ -444,11 +510,14 @@ export async function claimPendingVerifiedRewards(userId: string): Promise<numbe
 
   const authorRef = doc(db, 'users', userId);
   const authorSnap = await getDoc(authorRef);
-  if (!authorSnap.exists()) return 0;
+  if (!authorSnap.exists()) {
+    return empty(1, 'Level 1 Novice');
+  }
 
   const authorRaw = authorSnap.data() as UserProfile & {
     attributes?: Record<string, unknown>;
   };
+  const fromLevel = authorRaw.level || 1;
   let attributes = normalizeAttributes(authorRaw.attributes);
   let streakDays = authorRaw.streakDays || 0;
   let lastActiveDate = authorRaw.lastActiveDate || '';
@@ -486,23 +555,37 @@ export async function claimPendingVerifiedRewards(userId: string): Promise<numbe
   }
 
   const verifiedCount = all.length;
+  const toLevel =
+    pending.length > 0
+      ? computeOverallLevelFromAttributes(attributes)
+      : fromLevel;
+  const title =
+    pending.length > 0
+      ? getTitleForLevel(toLevel)
+      : authorRaw.title || getTitleForLevel(fromLevel);
+
   if (pending.length > 0) {
-    const level = computeOverallLevelFromAttributes(attributes);
     await updateDoc(authorRef, {
       attributes,
       totalVerifiedDeeds: verifiedCount,
       streakDays,
       lastActiveDate,
       activeDates: Array.from(activeDates),
-      level,
-      title: getTitleForLevel(level),
+      level: toLevel,
+      title,
       questDifficulty,
     });
   } else if ((authorRaw.totalVerifiedDeeds || 0) !== verifiedCount) {
     await updateDoc(authorRef, { totalVerifiedDeeds: verifiedCount });
   }
 
-  return pending.length;
+  return {
+    claimed: pending.length,
+    fromLevel,
+    toLevel,
+    leveledUp: toLevel > fromLevel,
+    title,
+  };
 }
 
 // 8. Live Guild Roster Listener

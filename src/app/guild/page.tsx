@@ -9,7 +9,9 @@ import {
   subscribeToGuildMembers,
   membersToLeaderboard,
   reconcileGuildVerifications,
+  leaveGuild,
 } from "@/lib/firestoreService";
+import { useToast } from "@/context/ToastContext";
 import {
   PeerSubmission,
   Guild,
@@ -45,6 +47,7 @@ function submissionDate(sub: PeerSubmission): Date | null {
 
 export default function GuildPage() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [guild, setGuild] = useState<Guild | null>(null);
   const [submissions, setSubmissions] = useState<PeerSubmission[]>([]);
   const [members, setMembers] = useState<GuildMemberProfile[]>([]);
@@ -52,6 +55,7 @@ export default function GuildPage() {
     "weekly",
   );
   const [, setTick] = useState(0);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (!profile?.guildId) return;
@@ -186,6 +190,23 @@ export default function GuildPage() {
   }
 
   const inviteCode = guild?.inviteCode;
+
+  const handleLeave = async () => {
+    if (leaving) return;
+    const ok = window.confirm(
+      "Leave this guild? Your level, attributes, streak, and deeds stay with you — you can join another invite code anytime.",
+    );
+    if (!ok) return;
+    setLeaving(true);
+    try {
+      await leaveGuild(profile.id);
+      toast("Left guild. Progress saved.");
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : "Could not leave guild.");
+    } finally {
+      setLeaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 min-h-full">
@@ -362,6 +383,21 @@ export default function GuildPage() {
             ))
           )}
         </div>
+      </div>
+
+      <div className="pt-2 border-t border-border-subtle space-y-2">
+        <p className="text-xs text-ink-muted leading-relaxed">
+          Leaving clears your guild seat only. Level, attributes, streak, and
+          verified deeds stay on your profile.
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleLeave()}
+          disabled={leaving}
+          className="text-sm text-ink-muted hover:text-attribute-social transition-colors disabled:opacity-50"
+        >
+          {leaving ? "Leaving…" : "Leave guild"}
+        </button>
       </div>
     </div>
   );
