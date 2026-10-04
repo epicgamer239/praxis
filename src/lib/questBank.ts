@@ -198,46 +198,80 @@ function pickQuestIndices(
   count: number,
   exclude: Set<number> = new Set(),
   salt = 0,
+  blockedAttributes: Set<AttributeType> = new Set(),
 ): number[] {
   const hash = getDayHash(dateStr, `${userSeed}-${mood}-s${salt}`);
   const picked: number[] = [];
   const used = new Set<number>(exclude);
+  const usedAttrs = new Set<AttributeType>(blockedAttributes);
 
   for (let n = 0; n < count; n++) {
-    let total = 0;
-    const weights: number[] = [];
-    for (let i = 0; i < MASTER_QUEST_BANK.length; i++) {
-      if (used.has(i)) {
-        weights.push(0);
-        continue;
-      }
-      const w = weatherWeight(MASTER_QUEST_BANK[i].setting, mood);
-      weights.push(w);
-      total += w;
+    let chosen = weightedBankPick(
+      hash,
+      n,
+      salt,
+      mood,
+      used,
+      usedAttrs,
+      true,
+    );
+    // Only relax attribute uniqueness if the bank is exhausted under the constraint.
+    if (chosen === null) {
+      chosen = weightedBankPick(hash, n, salt, mood, used, usedAttrs, false);
     }
-    if (total <= 0) break;
-
-    let target = ((((hash >> (n * 5)) + n * 17 + salt * 31) % 10000) / 10000) * total;
-    let chosen = 0;
-    for (let i = 0; i < weights.length; i++) {
-      target -= weights[i];
-      if (target <= 0) {
-        chosen = i;
-        break;
-      }
-      chosen = i;
-    }
+    if (chosen === null) break;
     used.add(chosen);
+    usedAttrs.add(MASTER_QUEST_BANK[chosen].attribute);
     picked.push(chosen);
   }
 
   return picked;
 }
 
+function weightedBankPick(
+  hash: number,
+  n: number,
+  salt: number,
+  mood: WeatherMood,
+  used: Set<number>,
+  usedAttrs: Set<AttributeType>,
+  enforceUniqueAttrs: boolean,
+): number | null {
+  let total = 0;
+  const weights: number[] = [];
+  for (let i = 0; i < MASTER_QUEST_BANK.length; i++) {
+    if (
+      used.has(i) ||
+      (enforceUniqueAttrs && usedAttrs.has(MASTER_QUEST_BANK[i].attribute))
+    ) {
+      weights.push(0);
+      continue;
+    }
+    const w = weatherWeight(MASTER_QUEST_BANK[i].setting, mood);
+    weights.push(w);
+    total += w;
+  }
+  if (total <= 0) return null;
+
+  let target =
+    ((((hash >> (n * 5)) + n * 17 + salt * 31) % 10000) / 10000) * total;
+  let chosen = 0;
+  for (let i = 0; i < weights.length; i++) {
+    target -= weights[i];
+    if (target <= 0) {
+      chosen = i;
+      break;
+    }
+    chosen = i;
+  }
+  return chosen;
+}
+
 /**
  * Returns 3 daily quests for one user. Shared weather bias, unique seed per person
  * so guildmates often overlap but rarely share the full board.
  * Prefer 2 curated + 1 local when local quests exist.
+ * Board always uses three different attributes (of the four NESW).
  */
 export function getDailyQuestsForUser(
   dateStr: string,
@@ -254,11 +288,29 @@ export function getDailyQuestsForUser(
   }
 
   const curatedIdx = pickQuestIndices(dateStr, seed, mood, 2);
-  const localIdx = pickFromGenerated(dateStr, seed, mood, local, 1);
+  const blocked = new Set(
+    curatedIdx.map((i) => MASTER_QUEST_BANK[i].attribute),
+  );
+  const localIdx = pickFromGenerated(dateStr, seed, mood, local, 1, blocked);
 
   const curated = curatedIdx.map((bankIdx) => questFromBankIndex(dateStr, bankIdx));
-  const generated = localIdx.map((i) => questFromGenerated(dateStr, i, local[i]));
+  if (localIdx.length === 0) {
+    const third = pickQuestIndices(
+      dateStr,
+      seed,
+      mood,
+      1,
+      new Set(curatedIdx),
+      1,
+      blocked,
+    );
+    return [
+      ...curated,
+      ...third.map((bankIdx) => questFromBankIndex(dateStr, bankIdx)),
+    ];
+  }
 
+  const generated = localIdx.map((i) => questFromGenerated(dateStr, i, local[i]));
   return [...curated, ...generated];
 }
 
@@ -278,16 +330,18 @@ function pickFromGenerated(
   mood: WeatherMood,
   local: GeneratedBankQuest[],
   count: number,
+  blockedAttributes: Set<AttributeType> = new Set(),
 ): number[] {
   const hash = getDayHash(dateStr, `${userSeed}-gen-${mood}`);
   const picked: number[] = [];
   const used = new Set<number>();
+  const usedAttrs = new Set<AttributeType>(blockedAttributes);
 
   for (let n = 0; n < count; n++) {
     let total = 0;
     const weights: number[] = [];
     for (let i = 0; i < local.length; i++) {
-      if (used.has(i)) {
+      if (used.has(i) || usedAttrs.has(local[i].attribute)) {
         weights.push(0);
         continue;
       }
@@ -307,6 +361,7 @@ function pickFromGenerated(
       chosen = i;
     }
     used.add(chosen);
+    usedAttrs.add(local[chosen].attribute);
     picked.push(chosen);
   }
   return picked;
@@ -337,6 +392,7 @@ export function resolveDailyBoard(
 /**
  * Pick a replacement curated quest for one slot.
  * Always draws from the master bank so submit resolution stays reliable.
+ * Prefers an attribute not already on the other two board slots.
  */
 export function pickRerollQuest(
   dateStr: string,
@@ -347,10 +403,15 @@ export function pickRerollQuest(
   salt: number,
 ): Quest {
   const exclude = new Set<number>();
-  for (const id of currentIds) {
+  const blockedAttributes = new Set<AttributeType>();
+
+  currentIds.forEach((id, i) => {
     const idx = parseBankIndex(id);
     if (idx !== null) exclude.add(idx);
-  }
+    if (i === slotIndex) return;
+    const other = getQuestById(id);
+    if (other) blockedAttributes.add(other.attribute);
+  });
 
   const picked = pickQuestIndices(
     dateStr,
@@ -359,6 +420,7 @@ export function pickRerollQuest(
     1,
     exclude,
     salt + slotIndex * 7 + 1,
+    blockedAttributes,
   );
   if (picked.length === 0) {
     // Exhausted exclusions — fall back to any unused bank index

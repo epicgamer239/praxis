@@ -33,8 +33,20 @@ export type CivicPulse = {
   link: string | null;
 };
 
-const CACHE_KEY = "praxis_field_v2";
-const CACHE_MS = 30 * 60 * 1000;
+const FIELD_CACHE_KEY = "praxis_field_v3";
+const COORDS_KEY = "praxis_coords_v1";
+const DENIED_KEY = "praxis_geo_denied_v1";
+
+/** Weather/place payload TTL. */
+const FIELD_CACHE_MS = 45 * 60 * 1000;
+/** Reuse last coords without a new GPS prompt. */
+const COORDS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Skip GPS entirely for a while after an explicit deny. */
+const DENIED_TTL_MS = 24 * 60 * 60 * 1000;
+/** Prefer cached coords (no GPS) when younger than this. */
+const COORDS_FRESH_MS = 6 * 60 * 60 * 1000;
+
+type StoredCoords = { lat: number; lon: number; at: number };
 
 export function airBandFromAqi(aqi: number | null): AirBand {
   if (aqi == null || Number.isNaN(aqi)) return "unknown";
@@ -78,24 +90,75 @@ export function weatherHint(mood: WeatherMood, airBand: AirBand): string {
   }
 }
 
-function readCache(): FieldConditions | null {
+function readStorage<T>(key: string): T | null {
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as FieldConditions;
-    if (Date.now() - parsed.fetchedAt > CACHE_MS) return null;
-    return parsed;
+    return JSON.parse(raw) as T;
   } catch {
     return null;
   }
 }
 
-function writeCache(snap: FieldConditions) {
+function writeStorage(key: string, value: unknown) {
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(snap));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* ignore */
   }
+}
+
+function readFieldCache(): FieldConditions | null {
+  const parsed = readStorage<FieldConditions>(FIELD_CACHE_KEY);
+  if (!parsed?.fetchedAt) return null;
+  if (Date.now() - parsed.fetchedAt > FIELD_CACHE_MS) return null;
+  // Never treat a stale "location off" snap as a hit — allow retry.
+  if (parsed.mood === "unknown" && !parsed.place) return null;
+  return parsed;
+}
+
+function writeFieldCache(snap: FieldConditions) {
+  writeStorage(FIELD_CACHE_KEY, snap);
+}
+
+function readCoords(): StoredCoords | null {
+  const parsed = readStorage<StoredCoords>(COORDS_KEY);
+  if (!parsed || typeof parsed.lat !== "number" || typeof parsed.lon !== "number") {
+    return null;
+  }
+  if (Date.now() - parsed.at > COORDS_TTL_MS) return null;
+  return parsed;
+}
+
+function writeCoords(lat: number, lon: number) {
+  writeStorage(COORDS_KEY, { lat, lon, at: Date.now() } satisfies StoredCoords);
+}
+
+function wasDeniedRecently(): boolean {
+  const at = readStorage<number>(DENIED_KEY);
+  if (typeof at !== "number") return false;
+  return Date.now() - at < DENIED_TTL_MS;
+}
+
+function markDenied() {
+  writeStorage(DENIED_KEY, Date.now());
+}
+
+function clearDenied() {
+  try {
+    localStorage.removeItem(DENIED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function isPermissionDenied(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as GeolocationPositionError).code === 1
+  );
 }
 
 function getPosition(): Promise<GeolocationPosition> {
@@ -107,7 +170,8 @@ function getPosition(): Promise<GeolocationPosition> {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: false,
       timeout: 10000,
-      maximumAge: 15 * 60 * 1000,
+      // Prefer a cached OS fix so iOS rarely resurfaces the prompt.
+      maximumAge: COORDS_FRESH_MS,
     });
   });
 }
@@ -135,26 +199,72 @@ function fallback(partial?: Partial<FieldConditions>): FieldConditions {
   };
 }
 
-/** Client entry: geolocate, then hit our field aggregator API. */
+async function fetchFieldForCoords(
+  lat: number,
+  lon: number,
+): Promise<FieldConditions> {
+  const res = await fetch(
+    `/api/field?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`,
+  );
+  if (!res.ok) throw new Error("Field API failed");
+  return (await res.json()) as FieldConditions;
+}
+
+/** Client entry: geolocate (when needed), then hit our field aggregator API. */
 export async function fetchFieldConditions(): Promise<FieldConditions> {
-  const cached = readCache();
+  const cached = readFieldCache();
   if (cached) return cached;
+
+  const coords = readCoords();
+
+  // After an explicit deny, never re-prompt this day — weather from last coords if any.
+  if (wasDeniedRecently()) {
+    if (coords) {
+      try {
+        const data = await fetchFieldForCoords(coords.lat, coords.lon);
+        writeFieldCache(data);
+        return data;
+      } catch {
+        /* fall through */
+      }
+    }
+    return fallback();
+  }
+
+  // Warm coords: refresh weather only, skip a new GPS round-trip/prompt.
+  if (coords && Date.now() - coords.at < COORDS_FRESH_MS) {
+    try {
+      const data = await fetchFieldForCoords(coords.lat, coords.lon);
+      writeFieldCache(data);
+      return data;
+    } catch {
+      /* try live GPS below */
+    }
+  }
 
   try {
     const pos = await getPosition();
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
-    const res = await fetch(
-      `/api/field?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`,
-    );
-    if (!res.ok) throw new Error("Field API failed");
-    const data = (await res.json()) as FieldConditions;
-    writeCache(data);
+    writeCoords(lat, lon);
+    clearDenied();
+    const data = await fetchFieldForCoords(lat, lon);
+    writeFieldCache(data);
     return data;
-  } catch {
-    const snap = fallback();
-    writeCache(snap);
-    return snap;
+  } catch (err) {
+    if (isPermissionDenied(err)) markDenied();
+
+    if (coords) {
+      try {
+        const data = await fetchFieldForCoords(coords.lat, coords.lon);
+        writeFieldCache(data);
+        return data;
+      } catch {
+        /* fall through */
+      }
+    }
+    // Do not persist the empty fallback — next open can retry if appropriate.
+    return fallback();
   }
 }
 

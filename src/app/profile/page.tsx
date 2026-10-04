@@ -106,13 +106,16 @@ export default function ProfilePage() {
         </h2>
       </div>
 
-      <div className="py-1 flex items-start justify-between gap-4">
+      <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-ink-primary">
             {profile.name}
           </h3>
           <p className="text-xs text-ink-secondary mt-0.5">
             {profile.title} · {profile.guildName || "No guild joined"}
+          </p>
+          <p className="text-xs text-ink-muted mt-2 tabular-nums">
+            Lv {profile.level} · {profile.streakDays}d streak
           </p>
         </div>
         <div className="flex items-start gap-5 shrink-0 text-right">

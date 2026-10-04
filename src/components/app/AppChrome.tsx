@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/navigation/BottomNav";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { unlockAudio } from "@/lib/sounds";
+import { enableDeviceHeading } from "@/lib/deviceHeading";
 import SplashScreen from "@/components/fx/SplashScreen";
 
 const OPEN_ROUTES = new Set(["/welcome", "/login", "/signup"]);
@@ -63,6 +64,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+    void unlockAudio();
+    void enableDeviceHeading();
     setEntered(true);
   };
 
