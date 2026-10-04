@@ -32,24 +32,36 @@ function polar(cx: number, cy: number, r: number, bearingDeg: number) {
   };
 }
 
-/** Arc path from startBearing → endBearing. */
-function arcPath(
-  cx: number,
-  cy: number,
-  r: number,
-  startBearing: number,
-  endBearing: number,
-  clockwise = true,
-) {
-  const start = polar(cx, cy, r, startBearing);
-  const end = polar(cx, cy, r, endBearing);
-  const delta = clockwise
-    ? (endBearing - startBearing + 360) % 360
-    : (startBearing - endBearing + 360) % 360;
-  const large = delta > 180 ? 1 : 0;
-  const sweep = clockwise ? 1 : 0;
-  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${large} ${sweep} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-}
+const CARDINALS = [
+  {
+    bearing: 0,
+    letter: "N",
+    word: "Neighborhood",
+    color: "#FACC15",
+    key: "neighborhood" as const,
+  },
+  {
+    bearing: 90,
+    letter: "E",
+    word: "Energy",
+    color: "#4ADE80",
+    key: "energy" as const,
+  },
+  {
+    bearing: 180,
+    letter: "S",
+    word: "Social",
+    color: "#FB923C",
+    key: "social" as const,
+  },
+  {
+    bearing: 270,
+    letter: "W",
+    word: "Wisdom",
+    color: "#38BDF8",
+    key: "wisdom" as const,
+  },
+];
 
 export default function CompassInstrument({
   attributes,
@@ -63,53 +75,34 @@ export default function CompassInstrument({
   const [asking, setAsking] = useState(false);
 
   const geometry = useMemo(() => {
-    const cx = 200;
-    const cy = 200;
-    const outerR = 158;
-    const hubR = 44;
-    const minR = hubR + 24;
-    const maxR = 128;
-    const labelR = outerR + 26;
+    const cx = 180;
+    const cy = 180;
+    const outerR = 132;
+    const hubR = 40;
+    const minR = hubR + 20;
+    const maxR = 108;
+    const wordR = outerR + 22;
 
-    const rN = effRadius(attributes.neighborhood, minR, maxR);
-    const rE = effRadius(attributes.energy, minR, maxR);
-    const rS = effRadius(attributes.social, minR, maxR);
-    const rW = effRadius(attributes.wisdom, minR, maxR);
+    const radii = {
+      neighborhood: effRadius(attributes.neighborhood, minR, maxR),
+      energy: effRadius(attributes.energy, minR, maxR),
+      social: effRadius(attributes.social, minR, maxR),
+      wisdom: effRadius(attributes.wisdom, minR, maxR),
+    };
 
-    const radii = [
-      rN,
-      (rN + rE) * 0.42,
-      rE,
-      (rE + rS) * 0.42,
-      rS,
-      (rS + rW) * 0.42,
-      rW,
-      (rW + rN) * 0.42,
-    ];
-    const colors = [
-      "#FACC15",
-      "#A3E635",
-      "#4ADE80",
-      "#FBBF24",
-      "#FB923C",
-      "#F472B6",
-      "#38BDF8",
-      "#67E8F9",
-    ];
-
-    const petals = radii.map((r, i) => {
-      const bearing = i * 45;
-      const tip = polar(cx, cy, r, bearing);
-      const left = polar(cx, cy, r * 0.55, bearing - 18);
-      const right = polar(cx, cy, r * 0.55, bearing + 18);
-      const base = polar(cx, cy, hubR + 2, bearing);
+    const petals = CARDINALS.map((c) => {
+      const r = radii[c.key];
+      const tip = polar(cx, cy, r, c.bearing);
+      const left = polar(cx, cy, r * 0.58, c.bearing - 20);
+      const right = polar(cx, cy, r * 0.58, c.bearing + 20);
+      const base = polar(cx, cy, hubR + 2, c.bearing);
       const d = [
         `M ${base.x.toFixed(1)} ${base.y.toFixed(1)}`,
         `Q ${left.x.toFixed(1)} ${left.y.toFixed(1)} ${tip.x.toFixed(1)} ${tip.y.toFixed(1)}`,
         `Q ${right.x.toFixed(1)} ${right.y.toFixed(1)} ${base.x.toFixed(1)} ${base.y.toFixed(1)}`,
         "Z",
       ].join(" ");
-      return { d, color: colors[i], tip };
+      return { d, color: c.color };
     });
 
     const ticks: {
@@ -121,61 +114,41 @@ export default function CompassInstrument({
     }[] = [];
     for (let deg = 0; deg < 360; deg += 5) {
       const major = deg % 30 === 0;
-      const inner = outerR - (major ? 11 : 5.5);
+      const inner = outerR - (major ? 10 : 5);
       const a = polar(cx, cy, inner, deg);
       const b = polar(cx, cy, outerR, deg);
       ticks.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, major });
     }
 
-    const pathN = arcPath(cx, cy, labelR, 318, 42, true);
-    const pathE = arcPath(cx, cy, labelR, 50, 130, true);
-    const pathS = arcPath(cx, cy, labelR, 138, 222, true);
-    const pathW = arcPath(cx, cy, labelR, 310, 230, false);
+    const letters = CARDINALS.map((c) => ({
+      ...c,
+      ...polar(cx, cy, outerR - 18, c.bearing),
+    }));
 
-    const letterN = polar(cx, cy, outerR - 20, 0);
-    const letterE = polar(cx, cy, outerR - 20, 90);
-    const letterS = polar(cx, cy, outerR - 20, 180);
-    const letterW = polar(cx, cy, outerR - 20, 270);
+    const words = CARDINALS.map((c) => {
+      const p = polar(cx, cy, wordR, c.bearing);
+      // Keep labels readable: slight offset so they sit outside cleanly
+      let anchor: "middle" | "start" | "end" = "middle";
+      let dx = 0;
+      let dy = 0;
+      if (c.bearing === 90) {
+        anchor = "start";
+        dx = 2;
+      } else if (c.bearing === 270) {
+        anchor = "end";
+        dx = -2;
+      } else if (c.bearing === 0) {
+        dy = -2;
+      } else if (c.bearing === 180) {
+        dy = 4;
+      }
+      return { ...c, x: p.x + dx, y: p.y + dy, anchor };
+    });
 
-    return {
-      cx,
-      cy,
-      outerR,
-      hubR,
-      petals,
-      ticks,
-      pathN,
-      pathE,
-      pathS,
-      pathW,
-      letterN,
-      letterE,
-      letterS,
-      letterW,
-    };
+    return { cx, cy, outerR, hubR, petals, ticks, letters, words };
   }, [attributes]);
 
-  const {
-    cx,
-    cy,
-    outerR,
-    hubR,
-    petals,
-    ticks,
-    pathN,
-    pathE,
-    pathS,
-    pathW,
-    letterN,
-    letterE,
-    letterS,
-    letterW,
-  } = geometry;
-
-  const idN = `arcN-${uid}`;
-  const idE = `arcE-${uid}`;
-  const idS = `arcS-${uid}`;
-  const idW = `arcW-${uid}`;
+  const { cx, cy, outerR, hubR, petals, ticks, letters, words } = geometry;
 
   const onActivate = () => {
     if (live) return;
@@ -187,7 +160,7 @@ export default function CompassInstrument({
     <div className="w-full select-none">
       <button
         type="button"
-        className="block w-full aspect-square max-h-[min(58vh,100vw)] mx-auto bg-transparent p-0 border-0 cursor-pointer"
+        className="block w-full aspect-square max-h-[min(40vh,88vw)] mx-auto bg-transparent p-0 border-0 cursor-pointer"
         onClick={onActivate}
         aria-label={
           live
@@ -196,7 +169,7 @@ export default function CompassInstrument({
         }
       >
         <svg
-          viewBox="-44 -44 488 488"
+          viewBox="-12 -8 384 376"
           className="w-full h-full"
           role="img"
           aria-hidden
@@ -208,12 +181,12 @@ export default function CompassInstrument({
             </radialGradient>
             <filter
               id={`glow-${uid}`}
-              x="-40%"
-              y="-40%"
-              width="180%"
-              height="180%"
+              x="-35%"
+              y="-35%"
+              width="170%"
+              height="170%"
             >
-              <feGaussianBlur stdDeviation="3.5" result="b" />
+              <feGaussianBlur stdDeviation="2.5" result="b" />
               <feMerge>
                 <feMergeNode in="b" />
                 <feMergeNode in="SourceGraphic" />
@@ -221,27 +194,23 @@ export default function CompassInstrument({
             </filter>
           </defs>
 
+          {/* Rotating rose: bezel, petals, cardinal letters */}
           <g transform={`rotate(${rotation.toFixed(2)} ${cx} ${cy})`}>
-            <path id={idN} d={pathN} fill="none" />
-            <path id={idE} d={pathE} fill="none" />
-            <path id={idS} d={pathS} fill="none" />
-            <path id={idW} d={pathW} fill="none" />
-
             <circle
               cx={cx}
               cy={cy}
               r={outerR}
               fill="none"
               stroke="#3A423D"
-              strokeWidth="1.5"
+              strokeWidth="1.4"
             />
             <circle
               cx={cx}
               cy={cy}
-              r={outerR - 14}
+              r={outerR - 12}
               fill="none"
               stroke="#262A27"
-              strokeWidth="0.85"
+              strokeWidth="0.8"
             />
 
             {ticks.map((t, i) => (
@@ -252,139 +221,63 @@ export default function CompassInstrument({
                 x2={t.x2}
                 y2={t.y2}
                 stroke={t.major ? "#4A524C" : "#2E3430"}
-                strokeWidth={t.major ? 1.5 : 0.85}
+                strokeWidth={t.major ? 1.35 : 0.75}
               />
             ))}
 
-            <g filter={`url(#glow-${uid})`} opacity="0.9">
+            <g filter={`url(#glow-${uid})`} opacity="0.7">
               {petals.map((p, i) => (
                 <path
                   key={i}
                   d={p.d}
                   fill={p.color}
-                  fillOpacity={0.38}
+                  fillOpacity={0.22}
                   stroke={p.color}
-                  strokeOpacity={0.55}
-                  strokeWidth="1.1"
+                  strokeOpacity={0.35}
+                  strokeWidth="1"
                 />
               ))}
             </g>
 
-            <text
-              x={letterN.x}
-              y={letterN.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#FACC15"
-              fontSize="22"
-              fontWeight="700"
-            >
-              N
-            </text>
-            <text
-              x={letterE.x}
-              y={letterE.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#4ADE80"
-              fontSize="22"
-              fontWeight="700"
-            >
-              E
-            </text>
-            <text
-              x={letterS.x}
-              y={letterS.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#FB923C"
-              fontSize="22"
-              fontWeight="700"
-            >
-              S
-            </text>
-            <text
-              x={letterW.x}
-              y={letterW.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#38BDF8"
-              fontSize="22"
-              fontWeight="700"
-            >
-              W
-            </text>
+            {letters.map((l) => (
+              <text
+                key={l.letter}
+                x={l.x}
+                y={l.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={l.color}
+                fontSize="20"
+                fontWeight="700"
+              >
+                {l.letter}
+              </text>
+            ))}
 
-            <text
-              fill="#FACC15"
-              fontSize="14"
-              fontWeight="600"
-              letterSpacing="0.04em"
-              opacity="0.95"
-            >
-              <textPath
-                href={`#${idN}`}
-                xlinkHref={`#${idN}`}
-                startOffset="50%"
-                textAnchor="middle"
+            {/* Words ride with their cardinal but counter-rotate to stay upright */}
+            {words.map((w) => (
+              <text
+                key={w.word}
+                x={w.x}
+                y={w.y}
+                textAnchor={w.anchor}
+                dominantBaseline="middle"
+                fill={w.color}
+                fontSize="11"
+                fontWeight="500"
+                opacity="0.72"
+                transform={`rotate(${(-rotation).toFixed(2)} ${w.x} ${w.y})`}
               >
-                Neighborhood
-              </textPath>
-            </text>
-            <text
-              fill="#4ADE80"
-              fontSize="14"
-              fontWeight="600"
-              letterSpacing="0.06em"
-              opacity="0.95"
-            >
-              <textPath
-                href={`#${idE}`}
-                xlinkHref={`#${idE}`}
-                startOffset="50%"
-                textAnchor="middle"
-              >
-                Energy
-              </textPath>
-            </text>
-            <text
-              fill="#FB923C"
-              fontSize="14"
-              fontWeight="600"
-              letterSpacing="0.06em"
-              opacity="0.95"
-            >
-              <textPath
-                href={`#${idS}`}
-                xlinkHref={`#${idS}`}
-                startOffset="50%"
-                textAnchor="middle"
-              >
-                Social
-              </textPath>
-            </text>
-            <text
-              fill="#38BDF8"
-              fontSize="14"
-              fontWeight="600"
-              letterSpacing="0.06em"
-              opacity="0.95"
-            >
-              <textPath
-                href={`#${idW}`}
-                xlinkHref={`#${idW}`}
-                startOffset="50%"
-                textAnchor="middle"
-              >
-                Wisdom
-              </textPath>
-            </text>
+                {w.word}
+              </text>
+            ))}
           </g>
 
+          {/* Facing mark + hub stay screen-fixed */}
           <polygon
-            points={`${cx},${cy - outerR - 8} ${cx - 6.5},${cy - outerR + 10} ${cx + 6.5},${cy - outerR + 10}`}
+            points={`${cx},${cy - outerR - 7} ${cx - 5.5},${cy - outerR + 8} ${cx + 5.5},${cy - outerR + 8}`}
             fill={live ? "#F0EFEA" : "#5A625C"}
-            opacity={live ? 0.95 : 0.55}
+            opacity={live ? 0.95 : 0.5}
           />
 
           <circle
@@ -393,14 +286,14 @@ export default function CompassInstrument({
             r={hubR}
             fill={`url(#hub-${uid})`}
             stroke="#3A423D"
-            strokeWidth="1.75"
+            strokeWidth="1.6"
           />
           <text
             x={cx}
             y={cy - 2}
             textAnchor="middle"
             fill="#F0EFEA"
-            fontSize="20"
+            fontSize="18"
             fontWeight="700"
             className="tabular-nums"
           >
@@ -408,10 +301,10 @@ export default function CompassInstrument({
           </text>
           <text
             x={cx}
-            y={cy + 18}
+            y={cy + 16}
             textAnchor="middle"
             fill="#9EA7A0"
-            fontSize="12"
+            fontSize="11"
             fontWeight="500"
             className="tabular-nums"
           >
@@ -420,8 +313,8 @@ export default function CompassInstrument({
         </svg>
       </button>
       {!live && (
-        <p className="text-center text-[12px] text-ink-muted -mt-1">
-          {asking ? "Allow motion to align…" : "Tap compass to align with north"}
+        <p className="text-center text-[11px] text-ink-muted mt-0.5">
+          {asking ? "Allow motion…" : "Tap to align"}
         </p>
       )}
     </div>

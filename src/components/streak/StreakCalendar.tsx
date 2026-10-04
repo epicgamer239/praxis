@@ -49,16 +49,16 @@ export default function StreakCalendar({
               day.isFuture && "opacity-40",
             )}
           >
-            <p className="text-[10px] text-ink-muted mb-1">{day.label}</p>
+            <p className="text-[11px] text-ink-muted mb-1">{day.label}</p>
             <p
               className={cn(
-                "text-xs font-medium",
+                "text-sm font-medium",
                 day.isActive ? "text-attribute-energy" : "text-ink-muted",
               )}
             >
               {day.isFuture ? "·" : day.isActive ? "✓" : "○"}
             </p>
-            <p className="text-[9px] text-ink-muted mt-0.5 tabular-nums">
+            <p className="text-[11px] text-ink-muted mt-0.5 tabular-nums">
               {day.dayOfMonth}
             </p>
           </div>

@@ -266,7 +266,6 @@ export default function DashboardPage() {
   const verifiedCount = questsWithStatus.filter(
     (q) => q.status === "verified",
   ).length;
-  const band = Math.round(profile.questDifficulty ?? DEFAULT_QUEST_DIFFICULTY);
 
   return (
     <div className="space-y-5">
@@ -282,13 +281,14 @@ export default function DashboardPage() {
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           Today ({verifiedCount}/3)
         </h2>
-        <p className="text-xs text-ink-muted mt-0.5 tabular-nums">
-          {labelForGoal(profile.goalId)} · band {band}/5
-          {" · "}
-          Resets in {timeUntilMidnight || "…"}
+        <p className="text-sm text-ink-muted mt-1">
+          {labelForGoal(profile.goalId)}
           {field && field.mood !== "unknown"
             ? ` · ${weatherHint(field.mood, field.airBand)}`
             : ""}
+        </p>
+        <p className="text-xs text-ink-muted mt-0.5 tabular-nums">
+          Resets in {timeUntilMidnight || "…"}
           {` · ${rerollsLeft} reroll${rerollsLeft === 1 ? "" : "s"} left`}
         </p>
       </div>
@@ -309,17 +309,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-ink-secondary">
-            Guild activity
-          </h3>
-          <Link
-            href="/verify"
-            className="text-[12px] text-ink-muted hover:text-ink-primary transition-colors"
-          >
-            Verify →
-          </Link>
-        </div>
+        <h3 className="text-sm font-medium text-ink-secondary">
+          Guild activity
+        </h3>
         <ActivityFeed items={activity} />
       </div>
 
@@ -330,7 +322,7 @@ export default function DashboardPage() {
         <p className="text-sm font-medium text-ink-primary">
           Help others · +{VOUCH_BONUS_XP} Social
         </p>
-        <p className="text-xs text-ink-muted mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           Vouch a guildmate&apos;s proof. You get XP too.
         </p>
       </Link>

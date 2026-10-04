@@ -32,17 +32,15 @@ export default function QuestCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border-subtle bg-canvas-card border-l-4",
+        "pl-3 py-3 border-l-4 space-y-2",
         BORDER_L[quest.attribute] || "border-l-border-strong",
-        verified && "border-attribute-energy/35",
       )}
     >
-      <div className="px-4 pt-4 pb-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p
               className={cn(
-                "text-[12px] font-medium",
+                "text-xs font-medium",
                 ATTRIBUTE_TEXT[quest.attribute],
               )}
             >
@@ -60,12 +58,12 @@ export default function QuestCard({
           </div>
 
           {awaiting && (
-            <span className="shrink-0 text-[12px] font-medium text-attribute-neighborhood tabular-nums pt-0.5">
+            <span className="shrink-0 text-xs font-medium text-attribute-neighborhood tabular-nums pt-0.5">
               {quest.vouchesReceived || 0}/{quest.requiredVouches || 2}
             </span>
           )}
           {verified && (
-            <span className="shrink-0 text-[12px] font-medium text-attribute-energy pt-0.5">
+            <span className="shrink-0 text-xs font-medium text-attribute-energy pt-0.5">
               Done
             </span>
           )}
@@ -95,8 +93,8 @@ export default function QuestCard({
         )}
 
         {pending && (
-          <div className="mt-4 pt-3 border-t border-border-subtle flex items-end justify-between gap-3">
-            <p className="text-xs text-ink-muted leading-snug min-w-0 flex-1">
+          <div className="mt-3 pt-3 border-t border-border-subtle flex items-end justify-between gap-3">
+            <p className="text-sm text-ink-muted leading-snug min-w-0 flex-1">
               Proof: {quest.requiredProof}
             </p>
             <div className="shrink-0 flex items-center gap-2">
@@ -125,7 +123,6 @@ export default function QuestCard({
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

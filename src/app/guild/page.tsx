@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
 import {
   subscribeToGuildSubmissions,
   subscribeToGuild,
@@ -45,7 +44,6 @@ function submissionDate(sub: PeerSubmission): Date | null {
 
 export default function GuildPage() {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [guild, setGuild] = useState<Guild | null>(null);
   const [submissions, setSubmissions] = useState<PeerSubmission[]>([]);
   const [members, setMembers] = useState<GuildMemberProfile[]>([]);
@@ -184,46 +182,17 @@ export default function GuildPage() {
 
   const inviteCode = guild?.inviteCode;
 
-  const handleCopyCode = async () => {
-    if (!inviteCode) return;
-    try {
-      await navigator.clipboard.writeText(inviteCode);
-      toast("Invite code copied to clipboard!");
-    } catch {
-      toast("Failed to copy invite code.");
-    }
-  };
-
   return (
     <div className="space-y-6 min-h-full">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border-subtle">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
-            {guild?.name || profile.guildName}
-          </h2>
-          <p className="text-xs text-ink-muted mt-1">
-            {members.length} member{members.length === 1 ? "" : "s"} ·{" "}
-            {weekDeeds}/{weekGoal} deeds this week
-          </p>
-        </div>
-        {inviteCode ? (
-          <button
-            type="button"
-            onClick={handleCopyCode}
-            title="Click to copy invite code"
-            className="text-xs text-ink-muted hover:text-ink-primary transition-colors flex items-center gap-1.5 self-start"
-          >
-            <span>Invite code:</span>
-            <span className="font-semibold text-attribute-neighborhood tracking-wider">
-              {inviteCode}
-            </span>
-            <span className="text-[11px] text-ink-muted">(Click to copy)</span>
-          </button>
-        ) : (
-          <span className="text-xs text-ink-muted self-start">
-            Loading invite code…
-          </span>
-        )}
+      <div className="pb-4 border-b border-border-subtle">
+        <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
+          {guild?.name || profile.guildName}
+        </h2>
+        <p className="text-sm text-ink-muted mt-1">
+          {members.length} member{members.length === 1 ? "" : "s"} ·{" "}
+          {weekDeeds}/{weekGoal} deeds this week
+          {inviteCode ? ` · Invite ${inviteCode}` : ""}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -240,9 +209,9 @@ export default function GuildPage() {
         </div>
 
         {roster.length === 0 ? (
-          <p className="text-xs text-ink-muted">Loading members…</p>
+          <p className="text-sm text-ink-muted">Loading members…</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-3">
             {roster.map((member) => {
               const pending = pendingByUser.get(member.userId) || 0;
               const needsYou = needsYouByUser.get(member.userId) || 0;
@@ -252,10 +221,10 @@ export default function GuildPage() {
                 <div
                   key={member.userId}
                   className={cn(
-                    "p-4 rounded-2xl border bg-canvas-card",
+                    "pl-3 py-3 border-l-4",
                     member.isCurrentUser
-                      ? "border-ink-primary/25"
-                      : "border-border-subtle",
+                      ? "border-l-moss"
+                      : "border-l-border-subtle",
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -272,13 +241,13 @@ export default function GuildPage() {
                             {member.name}
                             {member.isCurrentUser ? " (You)" : ""}
                           </p>
-                          <p className="text-[11px] text-ink-muted mt-0.5 truncate">
+                          <p className="text-xs text-ink-muted mt-0.5 truncate">
                             {member.title}
                           </p>
                         </div>
                         <span
                           className={cn(
-                            "text-[11px] shrink-0 font-medium",
+                            "text-xs shrink-0 font-medium",
                             presence === "Online"
                               ? "text-attribute-energy"
                               : "text-ink-muted",
@@ -288,22 +257,22 @@ export default function GuildPage() {
                         </span>
                       </div>
 
-                      <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-secondary">
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-secondary">
                         <span>{member.streakDays}d streak</span>
                         <span>{member.totalVerifiedDeeds} deeds</span>
                         <span>{member.totalVouchesGiven} vouches</span>
                       </div>
 
                       {pending > 0 && (
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <p className="text-[11px] text-attribute-neighborhood">
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <p className="text-xs text-attribute-neighborhood">
                             {pending} awaiting verify
                             {needsYou > 0 ? ` · ${needsYou} need you` : ""}
                           </p>
                           {needsYou > 0 && (
                             <Link
                               href="/verify"
-                              className="text-[11px] font-semibold text-ink-primary underline underline-offset-2"
+                              className="text-xs font-semibold text-ink-primary underline underline-offset-2"
                             >
                               Vouch
                             </Link>
@@ -319,12 +288,12 @@ export default function GuildPage() {
         )}
       </div>
 
-      <div className="p-5 sm:p-6 rounded-2xl border border-border-subtle bg-canvas-card space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-medium text-ink-secondary">
             Standings
           </h3>
-          <div className="flex items-end gap-3 text-xs">
+          <div className="flex items-end gap-3 text-sm">
             <button
               type="button"
               onClick={() => setLeaderboardTab("weekly")}

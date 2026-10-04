@@ -1,6 +1,7 @@
+// src/app/verify/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -8,7 +9,7 @@ import {
   vouchForSubmission,
 } from "@/lib/firestoreService";
 import { PeerSubmission } from "@/types";
-import { ATTRIBUTE_TEXT } from "@/lib/utils";
+import { ATTRIBUTE_TEXT, cn } from "@/lib/utils";
 import GuildGate from "@/components/guild/GuildGate";
 import VerifyHit, { VerifyHitPayload } from "@/components/fx/VerifyHit";
 import { armAudioFromGesture } from "@/lib/sounds";
@@ -33,6 +34,16 @@ export default function VerifyPage() {
 
     return () => unsubSubs();
   }, [profile?.guildId]);
+
+  const queue = useMemo(() => {
+    if (!profile) return [];
+    return submissions.filter(
+      (s) =>
+        s.status === "awaiting_vouches" &&
+        s.userId !== profile.id &&
+        !s.vouchedBy.includes(profile.id),
+    );
+  }, [submissions, profile]);
 
   if (!profile || !profile.guildId) {
     return <GuildGate />;
@@ -72,123 +83,89 @@ export default function VerifyPage() {
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           Verify
         </h2>
-        <p className="text-xs text-ink-muted mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           Vouch for guildmates in {profile.guildName}.
         </p>
       </div>
 
       <div className="space-y-4">
-        {submissions.length === 0 ? (
-          <div className="p-8 rounded-2xl border border-border-subtle bg-canvas-card text-center text-sm text-ink-muted">
-            No submissions currently awaiting vouches.
-          </div>
+        {queue.length === 0 ? (
+          <p className="text-sm text-ink-muted pl-3 border-l-4 border-l-border-subtle py-2">
+            Nothing waiting on your vouch right now.
+          </p>
         ) : (
-          submissions.map((sub) => {
-            const isAuthor = sub.userId === profile.id;
-            const hasVouched = sub.vouchedBy.includes(profile.id);
-            const isVerified = sub.status === "verified";
-
-            return (
-              <div
-                key={sub.id}
-                className={`p-5 rounded-2xl border bg-canvas-card space-y-4 ${
-                  isVerified
-                    ? "border-attribute-energy/50"
-                    : "border-border-subtle"
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-ink-primary font-medium">
-                    {sub.authorName} {isAuthor && "(You)"}
-                  </span>
-                  <span
-                    className={`${ATTRIBUTE_TEXT[sub.attribute]} font-medium`}
+          queue.map((sub) => (
+            <div
+              key={sub.id}
+              className="pl-3 py-3 border-l-4 border-l-attribute-social space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink-primary">
+                    {sub.authorName}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-xs font-medium mt-0.5",
+                      ATTRIBUTE_TEXT[sub.attribute],
+                    )}
                   >
                     {sub.attributeLabel} · +{sub.xpReward} XP
-                  </span>
-                </div>
-
-                <p className="text-base font-medium text-ink-primary">
-                  {sub.questTitle}
-                </p>
-
-                <div
-                  onClick={() =>
-                    sub.photoBase64 &&
-                    setInspectedPhoto({
-                      url: sub.photoBase64,
-                      title: sub.questTitle,
-                      author: sub.authorName,
-                    })
-                  }
-                  className="w-full h-56 rounded-xl overflow-hidden border border-border-subtle bg-canvas-subtle cursor-pointer relative group"
-                  title="Click to inspect photo"
-                >
-                  <img
-                    src={sub.photoBase64}
-                    alt="Submission proof"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-[1.01]"
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-xs bg-canvas-card/90 text-ink-primary px-3 py-1.5 rounded-xl border border-border-subtle">
-                      Click to enlarge
-                    </span>
-                  </div>
-                </div>
-
-                {sub.fieldNote && (
-                  <p className="text-xs text-ink-secondary italic">
-                    &ldquo;{sub.fieldNote}&rdquo;
                   </p>
-                )}
-
-                <div className="h-1.5 rounded-full bg-canvas-subtle overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-[width,background-color] duration-500 ${
-                      isVerified
-                        ? "bg-attribute-energy"
-                        : "bg-attribute-neighborhood"
-                    }`}
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        10 +
-                          (sub.vouchesReceived / (sub.requiredVouches || 2)) *
-                            90,
-                      )}%`,
-                    }}
-                  />
                 </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-border-subtle gap-2">
-                  <span className="text-xs text-ink-muted">
-                    {sub.vouchesReceived} of {sub.requiredVouches} vouches
-                    {sub.vouchedByNames.length > 0 &&
-                      ` (by ${sub.vouchedByNames.join(", ")})`}
-                  </span>
-
-                  {isAuthor ? (
-                    <span className="text-xs text-ink-muted italic shrink-0">
-                      Your submission
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={hasVouched || isVerified}
-                      onClick={() => handleVouch(sub)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-ink-primary bg-moss hover:bg-moss-hover disabled:bg-canvas-subtle disabled:text-ink-muted transition-colors shrink-0"
-                    >
-                      {isVerified
-                        ? "✓ Verified"
-                        : hasVouched
-                          ? "Vouched"
-                          : "Vouch"}
-                    </button>
-                  )}
-                </div>
+                <span className="text-xs text-ink-muted tabular-nums shrink-0">
+                  {sub.vouchesReceived}/{sub.requiredVouches}
+                </span>
               </div>
-            );
-          })
+
+              <p className="text-base font-medium text-ink-primary leading-snug">
+                {sub.questTitle}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  sub.photoBase64 &&
+                  setInspectedPhoto({
+                    url: sub.photoBase64,
+                    title: sub.questTitle,
+                    author: sub.authorName,
+                  })
+                }
+                className="block w-full h-52 overflow-hidden border border-border-subtle bg-canvas-subtle relative"
+              >
+                <img
+                  src={sub.photoBase64}
+                  alt="Submission proof"
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 right-2 text-xs text-ink-primary bg-canvas-card/90 px-2 py-1 border border-border-subtle">
+                  Tap to enlarge
+                </span>
+              </button>
+
+              {sub.fieldNote && (
+                <p className="text-sm text-ink-secondary italic">
+                  &ldquo;{sub.fieldNote}&rdquo;
+                </p>
+              )}
+
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-ink-muted min-w-0">
+                  {sub.vouchedByNames.length > 0
+                    ? `Also vouched by ${sub.vouchedByNames.join(", ")}`
+                    : "No vouches yet"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleVouch(sub)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-ink-primary bg-moss hover:bg-moss-hover transition-colors shrink-0"
+                >
+                  Vouch
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
@@ -196,31 +173,31 @@ export default function VerifyPage() {
 
       {inspectedPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 sm:p-6 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
           onClick={() => setInspectedPhoto(null)}
         >
           <div
-            className="max-w-2xl w-full bg-canvas-card border border-border-strong rounded-2xl overflow-hidden shadow-2xl p-4 space-y-3"
+            className="max-w-2xl w-full bg-canvas-card border border-border-strong overflow-hidden p-4 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between text-xs pb-2 border-b border-border-subtle">
-              <div>
-                <p className="text-ink-primary font-medium">
-                  {inspectedPhoto.author}&apos;s proof photo
+            <div className="flex items-center justify-between gap-3 pb-2 border-b border-border-subtle">
+              <div className="min-w-0">
+                <p className="text-sm text-ink-primary font-medium">
+                  {inspectedPhoto.author}&apos;s proof
                 </p>
-                <p className="text-ink-secondary mt-0.5">
+                <p className="text-xs text-ink-secondary mt-0.5 truncate">
                   {inspectedPhoto.title}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setInspectedPhoto(null)}
-                className="text-xs text-ink-muted hover:text-ink-primary px-2.5 py-1 rounded-xl bg-canvas-subtle transition-colors"
+                className="text-sm text-ink-muted hover:text-ink-primary shrink-0"
               >
-                Close (✕)
+                Close
               </button>
             </div>
-            <div className="max-h-[72vh] overflow-hidden rounded-xl bg-canvas-subtle flex items-center justify-center">
+            <div className="max-h-[72vh] overflow-hidden bg-canvas-subtle flex items-center justify-center">
               <img
                 src={inspectedPhoto.url}
                 alt="Enlarged proof"

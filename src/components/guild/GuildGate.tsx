@@ -81,7 +81,7 @@ export default function GuildGate() {
             <button
               type="submit"
               disabled={loading || code.length < 5}
-              className="praxis-btn praxis-btn--pill"
+              className="inline-flex w-full items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold text-ink-primary bg-moss hover:bg-moss-hover disabled:bg-canvas-subtle disabled:text-ink-muted transition-colors"
             >
               {loading ? "Joining..." : "Join existing guild"}
             </button>
@@ -105,7 +105,7 @@ export default function GuildGate() {
             <button
               type="submit"
               disabled={loading || !newGuildName}
-              className="praxis-btn praxis-btn--pill"
+              className="inline-flex w-full items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold text-ink-primary bg-moss hover:bg-moss-hover disabled:bg-canvas-subtle disabled:text-ink-muted transition-colors"
             >
               {loading ? "Creating..." : "Create new guild"}
             </button>
