@@ -909,3 +909,10 @@ body::-webkit-scrollbar,
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-moss) 28%, transparent);
   }
 }
+
+/* Hide Next.js dev indicator badge that clips over bottom navigation */
+nextjs-portal,
+[data-nextjs-dev-indicator],
+[data-nextjs-toast-wrapper] {
+  display: none !important;
+}

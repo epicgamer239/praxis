@@ -12,7 +12,7 @@ interface MemberAvatarProps {
   name: string;
   userId: string;
   lastSeenAtMs: number | null;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "profile";
 }
 
 export default function MemberAvatar({
@@ -23,12 +23,19 @@ export default function MemberAvatar({
 }: MemberAvatarProps) {
   const online = isOnline(lastSeenAtMs);
 
+  const sizeClasses =
+    size === "profile"
+      ? "h-12 w-12 text-lg"
+      : size === "lg"
+        ? "h-14 w-14 text-base"
+        : "h-11 w-11 text-sm";
+
   return (
     <div className="relative shrink-0">
       <div
         className={cn(
           "rounded-2xl flex items-center justify-center font-semibold",
-          size === "lg" ? "h-14 w-14 text-base" : "h-11 w-11 text-sm",
+          sizeClasses,
           avatarTone(userId),
         )}
         title={formatPresence(lastSeenAtMs)}

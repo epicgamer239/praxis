@@ -325,7 +325,7 @@ export default function GuildPage() {
               onClick={() => setLeaderboardTab("weekly")}
               className={`pb-1 transition-colors ${
                 leaderboardTab === "weekly"
-                  ? "text-ink-primary font-medium border-b border-ink-primary"
+                  ? "text-ink-primary font-medium underline underline-offset-[6px] decoration-ink-primary"
                   : "text-ink-muted hover:text-ink-secondary"
               }`}
             >
@@ -337,7 +337,7 @@ export default function GuildPage() {
               onClick={() => setLeaderboardTab("all-time")}
               className={`pb-1 transition-colors ${
                 leaderboardTab === "all-time"
-                  ? "text-ink-primary font-medium border-b border-ink-primary"
+                  ? "text-ink-primary font-medium underline underline-offset-[6px] decoration-ink-primary"
                   : "text-ink-muted hover:text-ink-secondary"
               }`}
             >

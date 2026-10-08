@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   // Only disable caching in local dev so phone/PWA tests pick up changes.
   async headers() {
     if (process.env.NODE_ENV === "production") return [];

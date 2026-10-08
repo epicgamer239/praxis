@@ -42,6 +42,13 @@ export default function RootLayout({
       <body className="bg-canvas-base text-ink-primary antialiased">
         <AuthProvider>
           <ToastProvider>
+            <div
+              className="pointer-events-none fixed inset-0 z-50 mix-blend-overlay opacity-[0.03]"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuOCIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiLz48L3N2Zz4=")`,
+              }}
+              aria-hidden="true"
+            />
             <AppChrome>{children}</AppChrome>
           </ToastProvider>
         </AuthProvider>

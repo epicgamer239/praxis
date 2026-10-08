@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import StreakCalendar from "@/components/streak/StreakCalendar";
+import MemberAvatar from "@/components/guild/MemberAvatar";
 import {
   claimPendingVerifiedRewards,
   saveUserGoal,
@@ -38,6 +39,13 @@ function deedDate(deed: PeerSubmission): string {
   if (!d) return "";
   return formatRelativeTime(d);
 }
+
+const BORDER_L_DEED: Record<string, string> = {
+  neighborhood: "border-l-attribute-neighborhood",
+  energy: "border-l-attribute-energy",
+  social: "border-l-attribute-social",
+  wisdom: "border-l-attribute-wisdom",
+};
 
 export default function ProfilePage() {
   const { profile, loading, signOut } = useAuth();
@@ -126,25 +134,37 @@ export default function ProfilePage() {
         </h2>
       </div>
 
-      <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-ink-primary">
-            {profile.name}
-          </h3>
-          <p className="text-xs text-ink-secondary mt-0.5">{profile.title}</p>
+      <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+          <MemberAvatar
+            name={profile.name}
+            userId={profile.id}
+            lastSeenAtMs={Date.now()}
+            size="profile"
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-semibold text-ink-primary">
+              {profile.name}
+            </h3>
+            <p className="text-xs text-ink-secondary mt-0.5 truncate">{profile.title}</p>
+          </div>
         </div>
-        <div className="flex items-start gap-5 shrink-0 text-right">
-          <div>
-            <p className="text-2xl font-semibold text-ink-primary tabular-nums">
+        <div className="flex items-center gap-5 shrink-0 text-right">
+          <div className="flex flex-col items-end">
+            <p className="text-3xl font-semibold text-white tabular-nums">
               {verifiedCount}
             </p>
-            <p className="text-xs text-ink-muted">Verified deeds</p>
+            <p className="text-[10px] text-gray-500 tracking-widest uppercase mt-0.5">
+              VERIFIED DEEDS
+            </p>
           </div>
-          <div>
-            <p className="text-2xl font-semibold text-ink-primary tabular-nums">
+          <div className="flex flex-col items-end">
+            <p className="text-3xl font-semibold text-white tabular-nums">
               {profile.totalVouchesGiven ?? 0}
             </p>
-            <p className="text-xs text-ink-muted">Vouches given</p>
+            <p className="text-[10px] text-gray-500 tracking-widest uppercase mt-0.5">
+              VOUCHES GIVEN
+            </p>
           </div>
         </div>
       </div>
@@ -196,7 +216,10 @@ export default function ProfilePage() {
             {verifiedDeeds.map((deed) => (
               <div
                 key={deed.id}
-                className="pl-3 py-3 border-l-4 border-l-border-strong space-y-2"
+                className={cn(
+                  "pl-3 py-2.5 border-l-[3px] space-y-2",
+                  BORDER_L_DEED[deed.attribute] || "border-l-border-strong",
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
