@@ -13,8 +13,18 @@ import {
   signOut as fbSignOut,
 } from "firebase/auth";
 import { auth, db, firebaseConfigReady } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, getDoc, updateDoc } from "firebase/firestore";
-import { UserProfile } from "@/types";
+import {
+  doc,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+  getDocFromServer,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { UserProfile, Guild } from "@/types";
 import {
   attributesNeedRewrite,
   defaultAttributes,
@@ -109,8 +119,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 attributes?: Record<string, unknown>;
               };
               const attributes = normalizeAttributes(data.attributes);
-              const profile: UserProfile = { ...data, attributes };
-              setProfile(profile);
+              let currentProfile: UserProfile = { ...data, attributes };
+
+              // Self-healing: If guildId was lost or wiped in the past,
+              // check if the user is a member of an active guild in Firestore
+              if (!currentProfile.guildId) {
+                try {
+                  const guildsQ = query(
+                    collection(db, "guilds"),
+                    where("memberIds", "array-contains", firebaseUser.uid),
+                  );
+                  const guildSnap = await getDocs(guildsQ);
+                  if (!guildSnap.empty) {
+                    const foundGuild = guildSnap.docs[0].data() as Guild;
+                    currentProfile = {
+                      ...currentProfile,
+                      guildId: foundGuild.id,
+                      guildName: foundGuild.name,
+                    };
+                    void updateDoc(userDocRef, {
+                      guildId: foundGuild.id,
+                      guildName: foundGuild.name,
+                    }).catch(() => {});
+                  }
+                } catch {
+                  /* best-effort heal */
+                }
+              }
+
+              setProfile(currentProfile);
               setAuthError(null);
               if (attributesNeedRewrite(data.attributes as Record<string, unknown>)) {
                 void updateDoc(userDocRef, { attributes }).catch(() => {
@@ -119,10 +156,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               return;
             }
+
+            // CRITICAL FIX: If snapshot is from local cache and doc is missing in cache,
+            // DO NOT assume user doesn't exist. Wait for server snapshot to arrive.
+            if (snap.metadata.fromCache) {
+              return;
+            }
+
             try {
-              const existing = await getDoc(userDocRef);
+              // Confirm directly from server before creating a default profile
+              const existing = await getDocFromServer(userDocRef);
               if (existing.exists()) {
-                setProfile(existing.data() as UserProfile);
+                const data = existing.data() as UserProfile & {
+                  attributes?: Record<string, unknown>;
+                };
+                const attributes = normalizeAttributes(data.attributes);
+                setProfile({ ...data, attributes });
                 return;
               }
               const created = buildDefaultProfile(

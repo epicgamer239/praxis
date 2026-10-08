@@ -200,6 +200,15 @@ export async function joinGuildByCode(userId: string, codeOrId: string): Promise
   return guildData;
 }
 
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 // 2. Create a New Guild
 export async function createGuild(userId: string, guildName: string): Promise<Guild> {
   const userSnap = await getDoc(doc(db, 'users', userId));
@@ -210,7 +219,7 @@ export async function createGuild(userId: string, guildName: string): Promise<Gu
     await leaveGuild(userId);
   }
 
-  const randomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const randomCode = generateInviteCode();
   const guildId = `guild_${Date.now()}`;
 
   const newGuild: Guild = {
