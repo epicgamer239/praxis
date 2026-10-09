@@ -18,6 +18,14 @@ import {
 } from "@/lib/goals";
 import { ATTRIBUTE_TEXT, cn } from "@/lib/utils";
 import { GoalId, PeerSubmission } from "@/types";
+import {
+  Users,
+  Compass,
+  Flame,
+  BookOpen,
+  Star,
+  Zap,
+} from "lucide-react";
 
 function deedDate(deed: PeerSubmission): string {
   const raw = (deed.verifiedAt || deed.createdAt) as {
@@ -46,6 +54,32 @@ const BORDER_L_DEED: Record<string, string> = {
   social: "border-l-attribute-social",
   wisdom: "border-l-attribute-wisdom",
 };
+
+function getCategoryBadge(attribute: string, category?: string) {
+  switch (attribute) {
+    case "social":
+      return {
+        icon: <Users size={14} className="shrink-0 text-orange-500" />,
+        label: category || "Social",
+      };
+    case "energy":
+      return {
+        icon: <Flame size={14} className="shrink-0 text-green-500" />,
+        label: category || "Energy",
+      };
+    case "wisdom":
+      return {
+        icon: <BookOpen size={14} className="shrink-0 text-sky-400" />,
+        label: category || "Wisdom",
+      };
+    case "neighborhood":
+    default:
+      return {
+        icon: <Compass size={14} className="shrink-0 text-yellow-500" />,
+        label: category || "Neighborhood",
+      };
+  }
+}
 
 export default function ProfilePage() {
   const { profile, loading, signOut } = useAuth();
@@ -134,8 +168,8 @@ export default function ProfilePage() {
         </h2>
       </div>
 
-      <div className="p-5 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+      <div className="p-4 rounded-2xl border border-border-subtle bg-canvas-card flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <MemberAvatar
             name={profile.name}
             userId={profile.id}
@@ -143,27 +177,27 @@ export default function ProfilePage() {
             size="profile"
           />
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-ink-primary">
+            <h3 className="text-base font-semibold text-ink-primary leading-snug truncate">
               {profile.name}
             </h3>
-            <p className="text-xs text-ink-secondary mt-0.5 truncate">{profile.title}</p>
+            <p className="text-[11px] text-ink-secondary mt-0.5 truncate">{profile.title}</p>
           </div>
         </div>
-        <div className="flex items-center gap-5 shrink-0 text-right">
+        <div className="flex items-center gap-4 shrink-0 text-right">
           <div className="flex flex-col items-end">
-            <p className="text-3xl font-semibold text-white tabular-nums">
+            <p className="text-2xl font-semibold text-white tabular-nums leading-normal">
               {verifiedCount}
             </p>
-            <p className="text-[10px] text-gray-500 tracking-widest uppercase mt-0.5">
-              VERIFIED DEEDS
+            <p className="text-[9px] text-gray-500 tracking-widest uppercase mt-0.5">
+              DEEDS
             </p>
           </div>
           <div className="flex flex-col items-end">
-            <p className="text-3xl font-semibold text-white tabular-nums">
+            <p className="text-2xl font-semibold text-white tabular-nums leading-normal">
               {profile.totalVouchesGiven ?? 0}
             </p>
-            <p className="text-[10px] text-gray-500 tracking-widest uppercase mt-0.5">
-              VOUCHES GIVEN
+            <p className="text-[9px] text-gray-500 tracking-widest uppercase mt-0.5">
+              VOUCHES
             </p>
           </div>
         </div>
@@ -182,20 +216,20 @@ export default function ProfilePage() {
             return (
               <div
                 key={attr.key}
-                className={`pl-3 py-3 border-l-4 ${attr.border} space-y-2`}
+                className={`pl-3 py-3 border-l-4 ${attr.border} space-y-2.5`}
               >
                 <div className="flex justify-between items-center text-xs">
                   <span className={`font-medium ${attr.textColor}`}>
                     {attr.name}
                   </span>
-                  <span className="text-ink-secondary tabular-nums">
+                  <span className="text-gray-400 tabular-nums">
                     Level {attr.stat.level} · {attr.stat.currentXp} /{" "}
                     {attr.stat.maxXp} XP
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded bg-canvas-subtle overflow-hidden">
+                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
                   <div
-                    className={`h-full ${attr.color} transition-[width] duration-700`}
+                    className={`h-full rounded-full ${attr.color} transition-[width] duration-700`}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -213,43 +247,68 @@ export default function ProfilePage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {verifiedDeeds.map((deed) => (
-              <div
-                key={deed.id}
-                className={cn(
-                  "pl-3 py-2.5 border-l-[3px] space-y-2",
-                  BORDER_L_DEED[deed.attribute] || "border-l-border-strong",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p
-                      className={`text-xs font-medium ${ATTRIBUTE_TEXT[deed.attribute]}`}
-                    >
-                      {deed.attributeLabel} · +{deed.xpReward} XP
-                    </p>
-                    <p className="text-sm font-medium text-ink-primary mt-1 leading-snug">
-                      {deed.questTitle}
-                    </p>
+            {verifiedDeeds.map((deed) => {
+              const categoryBadge = getCategoryBadge(
+                deed.attribute,
+                deed.attributeLabel,
+              );
+              const timeStr = deedDate(deed);
+
+              return (
+                <div
+                  key={deed.id}
+                  className={cn(
+                    "pl-3 py-3 border-l-4 space-y-2.5",
+                    BORDER_L_DEED[deed.attribute] || "border-l-border-strong",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {/* Structural, high-density metadata tag row */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+                          {categoryBadge.icon}
+                          <span>{categoryBadge.label}</span>
+                        </span>
+
+                        <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+                          <Star size={14} className="shrink-0 text-amber-400" />
+                          <span>+{deed.xpReward} XP</span>
+                        </span>
+
+                        {typeof deed.difficulty === "number" && (
+                          <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+                            <Zap size={14} className="shrink-0 text-blue-400" />
+                            <span>{deed.difficulty}/5</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="mt-2 text-white font-semibold text-base leading-snug">
+                        {deed.questTitle}
+                      </h3>
+                      {deed.fieldNote && (
+                        <p className="mt-1 text-gray-400 text-sm leading-snug italic">
+                          &ldquo;{deed.fieldNote}&rdquo;
+                        </p>
+                      )}
+                    </div>
+
+                    {timeStr && (
+                      <span className="text-xs text-gray-500 shrink-0 tabular-nums pt-0.5">
+                        {timeStr}
+                      </span>
+                    )}
                   </div>
-                  {deedDate(deed) && (
-                    <span className="text-xs text-ink-muted shrink-0 tabular-nums">
-                      {deedDate(deed)}
-                    </span>
+
+                  {deed.vouchedByNames && deed.vouchedByNames.length > 0 && (
+                    <p className="text-xs text-ink-muted mt-2.5">
+                      Vouched by {deed.vouchedByNames.join(" and ")}
+                    </p>
                   )}
                 </div>
-                {deed.fieldNote && (
-                  <p className="text-xs text-ink-secondary italic">
-                    &ldquo;{deed.fieldNote}&rdquo;
-                  </p>
-                )}
-                {deed.vouchedByNames.length > 0 && (
-                  <p className="text-xs text-ink-muted">
-                    Vouched by {deed.vouchedByNames.join(" and ")}
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -272,32 +331,26 @@ export default function ProfilePage() {
           <span className="text-ink-primary font-medium">
             {labelForGoal(profile.goalId).toLowerCase()}
           </span>
-          . Change anytime — today&apos;s board refreshes.
+          . Change anytime and today&apos;s board will refresh.
         </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
-          {GOAL_OPTIONS.map((goal, i) => {
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {GOAL_OPTIONS.map((goal) => {
             const on = profile.goalId === goal.id;
             return (
-              <React.Fragment key={goal.id}>
-                {i > 0 && (
-                  <span className="text-ink-muted text-xs" aria-hidden>
-                    ·
-                  </span>
+              <button
+                key={goal.id}
+                type="button"
+                disabled={savingGoal}
+                onClick={() => setGoal(goal.id)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50",
+                  on
+                    ? "bg-moss/30 text-white ring-1 ring-moss/50"
+                    : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200",
                 )}
-                <button
-                  type="button"
-                  disabled={savingGoal}
-                  onClick={() => setGoal(goal.id)}
-                  className={cn(
-                    "text-sm pb-0.5 transition-colors",
-                    on
-                      ? "text-ink-primary font-medium border-b border-ink-primary"
-                      : "text-ink-muted hover:text-ink-secondary",
-                  )}
-                >
-                  {goal.label}
-                </button>
-              </React.Fragment>
+              >
+                {goal.label}
+              </button>
             );
           })}
         </div>

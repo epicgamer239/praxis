@@ -27,6 +27,7 @@ import {
 } from "@/lib/guildActivity";
 import { formatPresence } from "@/lib/presence";
 import { cn } from "@/lib/utils";
+import { Users, Flame, Hash } from "lucide-react";
 
 function submissionDate(sub: PeerSubmission): Date | null {
   const raw = (sub.verifiedAt || sub.createdAt) as {
@@ -56,6 +57,7 @@ export default function GuildPage() {
   );
   const [, setTick] = useState(0);
   const [leaving, setLeaving] = useState(false);
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
 
   useEffect(() => {
     if (!profile?.guildId) return;
@@ -191,16 +193,13 @@ export default function GuildPage() {
 
   const inviteCode = guild?.inviteCode;
 
-  const handleLeave = async () => {
+  const handleConfirmLeave = async () => {
     if (leaving) return;
-    const ok = window.confirm(
-      "Leave this guild? Your level, attributes, streak, and deeds stay with you — you can join another invite code anytime.",
-    );
-    if (!ok) return;
     setLeaving(true);
     try {
       await leaveGuild(profile.id);
       toast("Left guild. Progress saved.");
+      setLeaveModalOpen(false);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Could not leave guild.");
     } finally {
@@ -214,11 +213,24 @@ export default function GuildPage() {
         <h2 className="text-xl font-semibold tracking-tight text-ink-primary">
           {guild?.name || profile.guildName}
         </h2>
-        <p className="text-sm text-ink-muted mt-1">
-          {members.length} member{members.length === 1 ? "" : "s"} ·{" "}
-          {weekDeeds}/{weekGoal} deeds this week
-          {inviteCode ? ` · Invite ${inviteCode}` : ""}
-        </p>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+            <Users size={14} className="shrink-0 text-gray-400" />
+            <span>{members.length} member{members.length === 1 ? "" : "s"}</span>
+          </span>
+
+          <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+            <Flame size={14} className="shrink-0 text-amber-400" />
+            <span>{weekDeeds}/{weekGoal} deeds this week</span>
+          </span>
+
+          {inviteCode && (
+            <span className="rounded-md bg-white/5 text-gray-300 px-2.5 py-1 text-[11px] font-medium flex items-center gap-1.5">
+              <Hash size={14} className="shrink-0 text-green-400" />
+              <span>{inviteCode}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -385,20 +397,56 @@ export default function GuildPage() {
         </div>
       </div>
 
-      <div className="pt-2 border-t border-border-subtle space-y-2">
-        <p className="text-xs text-ink-muted leading-relaxed">
-          Leaving clears your guild seat only. Level, attributes, streak, and
-          verified deeds stay on your profile.
-        </p>
+      <div className="pt-2 border-t border-border-subtle">
         <button
           type="button"
-          onClick={() => void handleLeave()}
-          disabled={leaving}
-          className="text-sm text-ink-muted hover:text-attribute-social transition-colors disabled:opacity-50"
+          onClick={() => setLeaveModalOpen(true)}
+          className="text-sm text-ink-muted hover:text-attribute-social transition-colors"
         >
-          {leaving ? "Leaving…" : "Leave guild"}
+          Leave guild
         </button>
       </div>
+
+      {leaveModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !leaving && setLeaveModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-canvas-card border border-border-strong p-5 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-1.5">
+              <h3 className="text-base font-semibold text-white">
+                Leave {guild?.name || "guild"}?
+              </h3>
+              <p className="text-xs text-ink-secondary leading-relaxed">
+                Leaving clears your guild seat only. Level, attributes, streak, and
+                verified deeds stay on your profile.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setLeaveModalOpen(false)}
+                disabled={leaving}
+                className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold text-ink-secondary bg-white/5 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmLeave()}
+                disabled={leaving}
+                className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold text-white bg-red-600/80 hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {leaving ? "Leaving…" : "Leave guild"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
